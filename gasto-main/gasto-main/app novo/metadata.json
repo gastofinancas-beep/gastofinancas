@@ -1,0 +1,8 @@
+{
+  "name": "Remix Gastô?",
+  "description": "Gastô? - Controle financeiro inteligente de cartões de crédito, fluxo de caixa, divisão de compras por pessoa, monitoramento de assinaturas recorrentes e módulo MeuUber/Motorista para corridas e lucro real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

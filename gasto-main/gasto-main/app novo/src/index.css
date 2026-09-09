@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  body {
+    @apply transition-colors duration-200 bg-[#F2F2F7] dark:bg-[#000000] text-slate-900 dark:text-slate-100;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* Scrollbar minimalista iOS */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-300/80 dark:bg-slate-700/80 rounded-full; }
+
+  /* Safe area para mobile */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+
+@layer utilities {
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  
+  /* Apple glass & card utilities */
+  .ios-card {
+    @apply bg-white dark:bg-[#1C1C1E] border border-slate-200/70 dark:border-white/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)];
+  }
+
+  .ios-subcard {
+    @apply bg-[#F2F2F7] dark:bg-[#2C2C2E] border border-slate-200/60 dark:border-white/[0.06];
+  }
+}
+
