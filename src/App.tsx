@@ -4220,6 +4220,7 @@ function computeDataSignature(data: any): string {
         hasAccount={walletAccounts.length > 0}
         isAccountModalOpen={isAddWalletAccountOpen}
         goToTab={(tab) => setActiveTab(tab)}
+        paused={isProfileModalOpen}
       />
 
       {/* User Profile Settings Modal */}
