@@ -20,7 +20,7 @@ import { DepositWithdrawModal } from './components/DepositWithdrawModal';
 import { ExportModal } from './components/ExportModal';
 import { migrateBoxHistoryIfNeeded } from './lib/investmentHistory';
 import { ConfirmDialogModal } from './components/ConfirmDialogModal';
-import { OnboardingTutorialModal } from './components/OnboardingTutorialModal';
+import { GuidedTour } from './components/GuidedTour';
 import { ProfileModal } from './components/ProfileModal';
 import { AddFreelanceEntryModal } from './components/AddFreelanceEntryModal';
 import { AddFreelanceExpenseModal } from './components/AddFreelanceExpenseModal';
@@ -619,7 +619,7 @@ export default function App() {
       else if (isExportOpen) setIsExportOpen(false);
       else if (isLegalTermsOpen) setIsLegalTermsOpen(false);
       else if (isDeleteAccountModalOpen) setIsDeleteAccountModalOpen(false);
-      else if (isTutorialOpen) setIsTutorialOpen(false);
+      else if (isTutorialOpen && walletAccounts.length > 0) setIsTutorialOpen(false);
       else if (isProfileModalOpen) setIsProfileModalOpen(false);
       else if (isAddWalletAccountOpen) setIsAddWalletAccountOpen(false);
       else if (isAddWalletTransactionOpen) setIsAddWalletTransactionOpen(false);
@@ -4084,26 +4084,13 @@ export default function App() {
         icon={confirmDialog.icon}
       />
 
-      {/* Interactive Onboarding Tutorial Modal */}
-      <OnboardingTutorialModal
+      {/* Tutorial guiado dentro do app real */}
+      <GuidedTour
         isOpen={isTutorialOpen}
         onClose={() => setIsTutorialOpen(false)}
-        onOpenAddCard={() => {
-          setIsTutorialOpen(false);
-          setIsAddCardOpen(true);
-        }}
-        onOpenAddPerson={() => {
-          setIsTutorialOpen(false);
-          setIsAddPersonOpen(true);
-        }}
-        onOpenAddExpense={() => {
-          setIsTutorialOpen(false);
-          handleOpenAddExpenseWithDefaults();
-        }}
-        onOpenAddWalletAccount={() => {
-          setIsTutorialOpen(false);
-          setIsAddWalletAccountOpen(true);
-        }}
+        hasAccount={walletAccounts.length > 0}
+        isAccountModalOpen={isAddWalletAccountOpen}
+        goToTab={(tab) => setActiveTab(tab)}
       />
 
       {/* User Profile Settings Modal */}
@@ -4148,6 +4135,7 @@ export default function App() {
         onSave={handleSaveWalletAccount}
         onDelete={handleDeleteWalletAccount}
         editingAccount={editingWalletAccount}
+        testDraft={isTutorialOpen && walletAccounts.length === 0}
       />
 
       <AddWalletTransactionModal

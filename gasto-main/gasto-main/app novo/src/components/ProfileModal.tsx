@@ -619,7 +619,7 @@ export function ProfileModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[200] bg-slate-100 dark:bg-[#09090B] overflow-y-auto flex flex-col w-full h-full min-h-screen text-slate-900 dark:text-slate-100"
+      className="fixed inset-0 z-[200] bg-slate-100 dark:bg-[#09090B] overflow-y-auto flex flex-col w-full h-[100dvh] text-slate-900 dark:text-slate-100"
     >
       {/* Sticky Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md border-b border-slate-200 dark:border-white/[0.08] px-3.5 sm:px-6 py-3 flex items-center justify-between shadow-xs shrink-0">
