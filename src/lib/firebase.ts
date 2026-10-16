@@ -53,9 +53,9 @@ setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.warn('Could not set browserLocalPersistence:', err);
 });
 
-// Set Firestore log level to error to avoid noisy offline retry notifications in console
+// Set Firestore log level to silent to avoid noisy quota/offline retry warnings in console
 try {
-  setLogLevel('error');
+  setLogLevel('silent');
 } catch {}
 
 // Configure Firestore with persistent local cache (IndexedDB) for PWA offline durability,
@@ -111,8 +111,16 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errStr = error instanceof Error ? error.message : String(error);
+  const isQuota = (error as any)?.code === 'resource-exhausted' || errStr.includes('resource-exhausted') || errStr.includes('Quota limit exceeded');
+
+  if (isQuota) {
+    console.warn('Firestore Quota temporarily exceeded. Falling back to local offline storage.');
+    return;
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errStr,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -127,8 +135,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Operation Notice: ', JSON.stringify(errInfo));
 }
 
 export default app;

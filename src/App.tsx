@@ -656,16 +656,56 @@ export default function App() {
     });
   };
 
+// Helper to generate a lightweight deterministic signature of the user data payload
+// to prevent unnecessary Firestore writes when data has not actually changed.
+function computeDataSignature(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  try {
+    return JSON.stringify({
+      expenses: data.expenses,
+      incomes: data.incomes,
+      cards: data.cards,
+      people: data.people,
+      folders: data.folders,
+      boxes: data.boxes,
+      paidBills: data.paidBills,
+      subscriptions: data.subscriptions,
+      driverTrips: data.driverTrips,
+      driverExpenses: data.driverExpenses,
+      driverGoals: data.driverGoals,
+      extraProfile: data.extraProfile,
+      freelanceEntries: data.freelanceEntries,
+      freelanceExpenses: data.freelanceExpenses,
+      freelanceGoals: data.freelanceGoals,
+      walletAccounts: data.walletAccounts,
+      walletTransactions: data.walletTransactions,
+      monthlyTargets: data.monthlyTargets,
+      accumulationGoals: data.accumulationGoals,
+    });
+  } catch {
+    return '';
+  }
+}
+
   const isApplyingRemoteUpdateRef = useRef(false);
   const latestSyncPayloadRef = useRef<any>(null);
+  const lastSyncedSignatureRef = useRef<string>('');
+  const quotaPausedUntilRef = useRef<number>(0);
   const syncTimeoutRef = useRef<any>(null);
 
-  // Instant write to Firestore with retry and sanitize
+  // Instant write to Firestore with retry, signature diffing, and sanitize
   const flushSyncToFirestore = async (overridePayload?: any) => {
     if (!currentUser) return;
+    if (Date.now() < quotaPausedUntilRef.current) return;
     const targetUid = currentUser.uid;
     const payload = overridePayload || latestSyncPayloadRef.current;
     if (!payload) return;
+
+    const signature = computeDataSignature(payload);
+    if (signature && signature === lastSyncedSignatureRef.current) {
+      setIsSyncing(false);
+      return;
+    }
 
     try {
       const userDocRef = doc(db, 'users', targetUid);
@@ -673,10 +713,16 @@ export default function App() {
         ...payload,
         updatedAt: new Date().toISOString(),
       }), { merge: true });
+      lastSyncedSignatureRef.current = signature;
       setIsSyncing(false);
       setLastSyncedAt(new Date());
-    } catch (err) {
-      console.warn('Firestore direct sync notice:', err);
+    } catch (err: any) {
+      if (err?.code === 'resource-exhausted' || String(err).includes('resource-exhausted') || String(err).includes('Quota limit')) {
+        quotaPausedUntilRef.current = Date.now() + 60000;
+        console.warn('Firestore write quota paused for 60s; relying on local storage.');
+      } else {
+        console.warn('Firestore direct sync notice:', err);
+      }
       setIsSyncing(false);
     }
   };
@@ -817,6 +863,8 @@ export default function App() {
 
       if (docSnap.exists()) {
         let data = docSnap.data();
+        lastSyncedSignatureRef.current = computeDataSignature(data);
+
         if (hasLocalData && isFirstCloudSync()) {
           // Aguarda a resposta do servidor: nunca mescla com cópia antiga do cache.
           if (docSnap.metadata.fromCache) return;
@@ -825,9 +873,18 @@ export default function App() {
             localStorage.setItem(`gasto_premerge_backup_${targetUid}`, JSON.stringify({ savedAt: new Date().toISOString(), local: localSnapshot, cloud: data }));
           } catch {}
           data = mergeFirstSync(data, localSnapshot);
-          setDoc(userDocRef, sanitizeForFirestore({ ...data, updatedAt: new Date().toISOString() }), { merge: true })
-            .then(markCloudSynced)
-            .catch(err => console.warn('First sync merge notice:', err));
+          markCloudSynced();
+          lastSyncedSignatureRef.current = computeDataSignature(data);
+
+          if (Date.now() >= quotaPausedUntilRef.current) {
+            setDoc(userDocRef, sanitizeForFirestore({ ...data, updatedAt: new Date().toISOString() }), { merge: true })
+              .catch(err => {
+                if ((err as any)?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+                  quotaPausedUntilRef.current = Date.now() + 60000;
+                }
+                console.warn('First sync merge notice:', err);
+              });
+          }
         } else if (isFirstCloudSync() && !docSnap.metadata.fromCache) {
           markCloudSynced();
         }
@@ -958,9 +1015,18 @@ export default function App() {
             delete localSnapshot.profile[key];
           }
         }
-        setDoc(userDocRef, sanitizeForFirestore({ ...localSnapshot, updatedAt: new Date().toISOString() }), { merge: true })
-          .then(markCloudSynced)
-          .catch(err => console.warn('First upload notice:', err));
+        markCloudSynced();
+        lastSyncedSignatureRef.current = computeDataSignature(localSnapshot);
+
+        if (Date.now() >= quotaPausedUntilRef.current) {
+          setDoc(userDocRef, sanitizeForFirestore({ ...localSnapshot, updatedAt: new Date().toISOString() }), { merge: true })
+            .catch(err => {
+              if ((err as any)?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+                quotaPausedUntilRef.current = Date.now() + 60000;
+              }
+              console.warn('First upload notice:', err);
+            });
+        }
         loadedUidRef.current = targetUid;
         setDataLoadedFromCloud(true);
         isInitialLoadRef.current = false;
@@ -1005,7 +1071,8 @@ export default function App() {
           setIsTutorialOpen(true);
         }
 
-        setDoc(userDocRef, sanitizeForFirestore({
+        markCloudSynced();
+        const initPayload = {
           expenses: initialExp,
           incomes: initialInc,
           cards: initialCds,
@@ -1027,7 +1094,18 @@ export default function App() {
           accumulationGoals: INITIAL_ACCUMULATION_GOALS,
           profile: initialProf,
           updatedAt: new Date().toISOString(),
-        }), { merge: true }).catch(err => console.warn('Background setDoc notice:', err));
+        };
+        lastSyncedSignatureRef.current = computeDataSignature(initPayload);
+
+        if (Date.now() >= quotaPausedUntilRef.current) {
+          setDoc(userDocRef, sanitizeForFirestore(initPayload), { merge: true })
+            .catch(err => {
+              if ((err as any)?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+                quotaPausedUntilRef.current = Date.now() + 60000;
+              }
+              console.warn('Background setDoc notice:', err);
+            });
+        }
 
         loadedUidRef.current = targetUid;
         setDataLoadedFromCloud(true);
@@ -1035,11 +1113,14 @@ export default function App() {
       }
     }, (error) => {
       console.warn('Firestore real-time subscription notice:', error);
+      if ((error as any)?.code === 'resource-exhausted' || String(error).includes('resource-exhausted') || String(error).includes('Quota limit')) {
+        quotaPausedUntilRef.current = Date.now() + 60000;
+      }
       if (hasLocalData && isMounted) {
         loadedUidRef.current = targetUid;
         setDataLoadedFromCloud(true);
         isInitialLoadRef.current = false;
-      } else {
+      } else if (Date.now() >= quotaPausedUntilRef.current) {
         getDoc(userDocRef).then((docSnap) => {
           if (docSnap.exists() && isMounted) {
             const data = docSnap.data();
@@ -1139,6 +1220,19 @@ export default function App() {
     };
     latestSyncPayloadRef.current = syncPayload;
 
+    const signature = computeDataSignature(syncPayload);
+    // If the data payload hasn't changed compared to what is currently saved or loaded from cloud, skip writing
+    if (signature && signature === lastSyncedSignatureRef.current) {
+      setIsSyncing(false);
+      return;
+    }
+
+    // If quota was exhausted recently, pause cloud writes and rely on localStorage
+    if (Date.now() < quotaPausedUntilRef.current) {
+      setIsSyncing(false);
+      return;
+    }
+
     setIsSyncing(true);
 
     if (syncTimeoutRef.current) {
@@ -1147,19 +1241,29 @@ export default function App() {
 
     syncTimeoutRef.current = setTimeout(async () => {
       try {
+        if (Date.now() < quotaPausedUntilRef.current) {
+          setIsSyncing(false);
+          return;
+        }
         const userDocRef = doc(db, 'users', currentUser.uid);
         await setDoc(userDocRef, sanitizeForFirestore({
           ...syncPayload,
           updatedAt: new Date().toISOString(),
         }), { merge: true });
 
+        lastSyncedSignatureRef.current = signature;
         setIsSyncing(false);
         setLastSyncedAt(new Date());
-      } catch (e) {
-        console.warn('Firestore sync notice:', e);
+      } catch (e: any) {
+        if (e?.code === 'resource-exhausted' || String(e).includes('resource-exhausted') || String(e).includes('Quota limit')) {
+          quotaPausedUntilRef.current = Date.now() + 60000;
+          console.warn('Firestore write quota paused for 60s; relying on local storage.');
+        } else {
+          console.warn('Firestore sync notice:', e);
+        }
         setIsSyncing(false);
       }
-    }, 1500);
+    }, 2500);
 
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -3256,14 +3360,19 @@ export default function App() {
         localStorage.setItem(STORAGE_KEYS.MONTHLY_TARGETS, JSON.stringify(updated));
       } catch {}
 
-      try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userDocRef, sanitizeForFirestore({
-          monthlyTargets: updated,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-      } catch (err) {
-        console.warn('Error saving monthly target to Firestore:', err);
+      if (Date.now() >= quotaPausedUntilRef.current) {
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await setDoc(userDocRef, sanitizeForFirestore({
+            monthlyTargets: updated,
+            updatedAt: new Date().toISOString(),
+          }), { merge: true });
+        } catch (err: any) {
+          if (err?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+            quotaPausedUntilRef.current = Date.now() + 60000;
+          }
+          console.warn('Error saving monthly target to Firestore:', err);
+        }
       }
     }
   };
@@ -3280,14 +3389,19 @@ export default function App() {
         localStorage.setItem(STORAGE_KEYS.MONTHLY_TARGETS, JSON.stringify(copy));
       } catch {}
 
-      try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userDocRef, sanitizeForFirestore({
-          monthlyTargets: copy,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-      } catch (err) {
-        console.warn('Error deleting monthly target from Firestore:', err);
+      if (Date.now() >= quotaPausedUntilRef.current) {
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await setDoc(userDocRef, sanitizeForFirestore({
+            monthlyTargets: copy,
+            updatedAt: new Date().toISOString(),
+          }), { merge: true });
+        } catch (err: any) {
+          if (err?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+            quotaPausedUntilRef.current = Date.now() + 60000;
+          }
+          console.warn('Error deleting monthly target from Firestore:', err);
+        }
       }
     }
   };
@@ -3311,14 +3425,19 @@ export default function App() {
         localStorage.setItem(STORAGE_KEYS.ACCUMULATION_GOALS, JSON.stringify(updated));
       } catch {}
 
-      try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userDocRef, sanitizeForFirestore({
-          accumulationGoals: updated,
-          updatedAt: new Date().toISOString(),
-        }), { merge: true });
-      } catch (err) {
-        console.warn('Error saving goal to Firestore:', err);
+      if (Date.now() >= quotaPausedUntilRef.current) {
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await setDoc(userDocRef, sanitizeForFirestore({
+            accumulationGoals: updated,
+            updatedAt: new Date().toISOString(),
+          }), { merge: true });
+        } catch (err: any) {
+          if (err?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+            quotaPausedUntilRef.current = Date.now() + 60000;
+          }
+          console.warn('Error saving goal to Firestore:', err);
+        }
       }
     }
   };
@@ -3344,14 +3463,19 @@ export default function App() {
             localStorage.setItem(STORAGE_KEYS.ACCUMULATION_GOALS, JSON.stringify(updated));
           } catch {}
 
-          try {
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            await setDoc(userDocRef, sanitizeForFirestore({
-              accumulationGoals: updated,
-              updatedAt: new Date().toISOString(),
-            }), { merge: true });
-          } catch (err) {
-            console.warn('Error deleting goal from Firestore:', err);
+          if (Date.now() >= quotaPausedUntilRef.current) {
+            try {
+              const userDocRef = doc(db, 'users', currentUser.uid);
+              await setDoc(userDocRef, sanitizeForFirestore({
+                accumulationGoals: updated,
+                updatedAt: new Date().toISOString(),
+              }), { merge: true });
+            } catch (err: any) {
+              if (err?.code === 'resource-exhausted' || String(err).includes('resource-exhausted')) {
+                quotaPausedUntilRef.current = Date.now() + 60000;
+              }
+              console.warn('Error deleting goal from Firestore:', err);
+            }
           }
         }
       },
@@ -3386,16 +3510,21 @@ export default function App() {
       }
 
       if (isFirebaseAuth) {
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          // Remover campos sensíveis de segurança local antes de enviar ao Firestore
-          const { appLockPin: _pin, ...profileForCloud } = updatedProfile;
-          await setDoc(userDocRef, sanitizeForFirestore({
-            profile: profileForCloud,
-            updatedAt: new Date().toISOString(),
-          }), { merge: true });
-        } catch (e) {
-          console.warn('Firestore profile save notice:', e);
+        if (Date.now() >= quotaPausedUntilRef.current) {
+          try {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            // Remover campos sensíveis de segurança local antes de enviar ao Firestore
+            const { appLockPin: _pin, ...profileForCloud } = updatedProfile;
+            await setDoc(userDocRef, sanitizeForFirestore({
+              profile: profileForCloud,
+              updatedAt: new Date().toISOString(),
+            }), { merge: true });
+          } catch (e: any) {
+            if (e?.code === 'resource-exhausted' || String(e).includes('resource-exhausted')) {
+              quotaPausedUntilRef.current = Date.now() + 60000;
+            }
+            console.warn('Firestore profile save notice:', e);
+          }
         }
       }
     }
