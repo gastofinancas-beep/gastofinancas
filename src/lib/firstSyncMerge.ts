@@ -2,9 +2,11 @@
  * Primeira sincronização com a nuvem (migração segura).
  *
  * Quem usava o app só com os dados salvos no navegador não pode perder nada quando o
- * Firestore passa a sincronizar. Na primeira vez em cada navegador, os dados locais e os da
- * nuvem são JUNTADOS (nunca apagados): itens com o mesmo `id` ficam com a versão local,
- * porque é a que a pessoa estava usando.
+ * Firestore passa a sincronizar. Na primeira vez em cada navegador:
+ * - listas: se o aparelho tem itens, a lista do aparelho vale (é a que a pessoa estava usando,
+ *   então o que ela apagou continua apagado); se a lista do aparelho está vazia ou não existe,
+ *   vale a da nuvem. Os dados originais dos dois lados ficam em um backup no navegador.
+ * - objetos (metas, perfil): chaves do aparelho sobrescrevem as da nuvem, sem remover chaves.
  */
 
 export const LIST_FIELDS = [
@@ -27,33 +29,7 @@ type AnyRecord = Record<string, any>;
 function mergeLists(cloud: unknown, local: unknown): unknown[] {
   const cloudList = Array.isArray(cloud) ? cloud : [];
   const localList = Array.isArray(local) ? local : [];
-  const result: unknown[] = [];
-  const indexById = new Map<string, number>();
-  const seenJson = new Set<string>();
-
-  const add = (item: unknown, overwrite: boolean) => {
-    const id = item && typeof item === 'object' ? (item as AnyRecord).id : undefined;
-    if (typeof id === 'string' || typeof id === 'number') {
-      const key = String(id);
-      const at = indexById.get(key);
-      if (at === undefined) {
-        indexById.set(key, result.length);
-        result.push(item);
-      } else if (overwrite) {
-        result[at] = item;
-      }
-      return;
-    }
-    const json = JSON.stringify(item);
-    if (!seenJson.has(json)) {
-      seenJson.add(json);
-      result.push(item);
-    }
-  };
-
-  cloudList.forEach((item) => add(item, false));
-  localList.forEach((item) => add(item, true));
-  return result;
+  return localList.length > 0 ? localList : cloudList;
 }
 
 function mergeObjects(cloud: unknown, local: unknown): AnyRecord | undefined {
