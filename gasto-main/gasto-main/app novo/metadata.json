@@ -1,0 +1,10 @@
+{
+  "name": "FINANCEGASTOS 22.09 - 17hrs",
+  "description": "App financeiro simples, moderno e mobile-first com lançamento manual, divisão de faturas por pessoas e cartões, modo escuro refinado e aba de investimentos com pastas e caixinhas com rendimentos.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
