@@ -4087,13 +4087,15 @@ export default function App() {
       {/* Interactive Onboarding Tutorial Modal */}
       <OnboardingTutorialModal
         isOpen={isTutorialOpen}
+        hidden={isAddCardOpen || isAddPersonOpen || isAddWalletAccountOpen}
+        hasAccount={walletAccounts.length > 0}
+        hasCard={cards.length > 0}
+        hasPerson={people.length > 0}
         onClose={() => setIsTutorialOpen(false)}
         onOpenAddCard={() => {
-          setIsTutorialOpen(false);
           setIsAddCardOpen(true);
         }}
         onOpenAddPerson={() => {
-          setIsTutorialOpen(false);
           setIsAddPersonOpen(true);
         }}
         onOpenAddExpense={() => {
@@ -4101,7 +4103,6 @@ export default function App() {
           handleOpenAddExpenseWithDefaults();
         }}
         onOpenAddWalletAccount={() => {
-          setIsTutorialOpen(false);
           setIsAddWalletAccountOpen(true);
         }}
       />

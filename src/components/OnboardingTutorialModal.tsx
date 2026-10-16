@@ -31,12 +31,15 @@ interface OnboardingTutorialModalProps {
   onOpenAddPerson?: () => void;
   onOpenAddExpense?: () => void;
   onOpenAddWalletAccount?: () => void;
+  hidden?: boolean;
+  hasAccount?: boolean;
+  hasCard?: boolean;
+  hasPerson?: boolean;
 }
 
-const STEPS = [
+const STEPS: Array<{ id: string; title: string; subtitle: string; description: string; highlights: { icon: any; text: string }[]; actionText?: string; actionType?: string }> = [
   {
     id: 'welcome',
-    badge: 'Passo 1 de 6',
     title: 'Bem-vindo ao Gastô!',
     subtitle: 'Seu controle financeiro inteligente e descomplicado',
     description: 'O Gastô? foi desenhado para te dar clareza total: acompanhe faturas de cartão de crédito, divida compras com amigos de forma justa, controle suas contas bancárias e faça suas caixinhas renderem.',
@@ -50,7 +53,6 @@ const STEPS = [
   },
   {
     id: 'install',
-    badge: 'Passo 2 de 6',
     title: 'Instale na Tela de Início',
     subtitle: 'App nativo no seu celular (iPhone & Android)',
     description: 'Adicione o Gastô? à tela inicial do seu celular para acesso instantâneo em tela cheia, sem barras do navegador e com carregamento ultra veloz.',
@@ -63,8 +65,19 @@ const STEPS = [
     actionType: undefined,
   },
   {
+    id: 'wallet',
+    title: 'Cadastre sua Conta Bancária',
+    subtitle: 'Obrigatório para seus gastos aparecerem',
+    description: 'Seus gastos e entradas são lançados em uma conta (Itaú, Nubank, Bradesco ou Dinheiro físico). Sem ela, o que você registrar não aparece no saldo nem no extrato. Cadastre a primeira agora, leva só 1 minuto.',
+    highlights: [
+      { icon: Wallet, text: 'Controle de saldo em conta corrente e dinheiro' },
+      { icon: DollarSign, text: 'Extrato detalhado de receitas e despesas' },
+    ],
+    actionText: 'Cadastrar minha conta',
+    actionType: 'wallet',
+  },
+  {
     id: 'cards',
-    badge: 'Passo 3 de 6',
     title: 'Cartões de Crédito & Fechamento',
     subtitle: 'Cadastre suas datas de corte e vencimento',
     description: 'Ao cadastrar seus cartões de crédito (Nubank, Itaú, Mercado Pago, etc.), informe o dia de fechamento da fatura. O app aloca automaticamente cada nova compra na fatura correta!',
@@ -76,21 +89,7 @@ const STEPS = [
     actionType: 'card',
   },
   {
-    id: 'wallet',
-    badge: 'Passo 4 de 6',
-    title: 'Sua Carteira & Bancos',
-    subtitle: 'Centralize seus saldos e conta corrente',
-    description: 'Na aba Carteira você cadastra suas contas (Itaú, Bradesco, Nubank, Dinheiro físico) e acompanha o saldo acumulado total. Tudo com movimentações de entradas e transferências.',
-    highlights: [
-      { icon: Wallet, text: 'Controle de saldo em conta corrente e dinheiro' },
-      { icon: DollarSign, text: 'Extrato detalhado de receitas e despesas' },
-    ],
-    actionText: 'Adicionar Conta',
-    actionType: 'wallet',
-  },
-  {
     id: 'people',
-    badge: 'Passo 5 de 6',
     title: 'Divisão de Gastos com Pessoas',
     subtitle: 'Sem dor de cabeça para saber quem te deve',
     description: 'Emprestou o cartão para parentes ou comprou algo parcelado para um amigo? Atribua o responsável ao lançar a compra e gere um resumo com chave Pix para cobrar em segundos!',
@@ -103,7 +102,6 @@ const STEPS = [
   },
   {
     id: 'boxes',
-    badge: 'Passo 6 de 6',
     title: 'Caixinhas & Metas de Investimento',
     subtitle: 'Faça seu dinheiro trabalhar por você',
     description: 'Crie pastas de metas (Reserva de Emergência, Viagem, Carro Novo) e atribua rendimento mensal baseado no CDI. Registre aportes e resgates com simulação de rendimentos.',
@@ -442,6 +440,10 @@ export function OnboardingTutorialModal({
   onOpenAddPerson,
   onOpenAddExpense,
   onOpenAddWalletAccount,
+  hidden = false,
+  hasAccount = false,
+  hasCard = false,
+  hasPerson = false,
 }: OnboardingTutorialModalProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
@@ -451,13 +453,23 @@ export function OnboardingTutorialModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || hidden) return null;
 
   const currentStep = STEPS[currentStepIndex];
   const isLast = currentStepIndex === STEPS.length - 1;
   const isFirst = currentStepIndex === 0;
 
+  const isDone = currentStep.id === 'wallet' ? hasAccount : currentStep.id === 'cards' ? hasCard : currentStep.id === 'people' ? hasPerson : false;
+  const walletIdx = STEPS.findIndex((st) => st.id === 'wallet');
+  const mustRegisterAccount = !hasAccount && currentStepIndex >= walletIdx;
+  const blockedHere = currentStep.id === 'wallet' && !hasAccount;
+
   const handleNext = () => {
+    if (blockedHere) {
+      triggerHaptic(20);
+      handleAction();
+      return;
+    }
     triggerHaptic(8);
     if (isLast) {
       onClose();
@@ -474,6 +486,7 @@ export function OnboardingTutorialModal({
   };
 
   const handleSkip = () => {
+    if (!hasAccount) return;
     triggerHaptic(8);
     onClose();
   };
@@ -481,13 +494,10 @@ export function OnboardingTutorialModal({
   const handleAction = () => {
     triggerHaptic(12);
     if (currentStep.actionType === 'card' && onOpenAddCard) {
-      onClose();
       onOpenAddCard();
     } else if (currentStep.actionType === 'wallet' && onOpenAddWalletAccount) {
-      onClose();
       onOpenAddWalletAccount();
     } else if (currentStep.actionType === 'person' && onOpenAddPerson) {
-      onClose();
       onOpenAddPerson();
     } else if (currentStep.actionType === 'expense' && onOpenAddExpense) {
       onClose();
@@ -503,9 +513,9 @@ export function OnboardingTutorialModal({
       case 1:
         return <IllustrationInstall />;
       case 2:
-        return <IllustrationCards />;
-      case 3:
         return <IllustrationWallet />;
+      case 3:
+        return <IllustrationCards />;
       case 4:
         return <IllustrationPeople />;
       case 5:
@@ -520,7 +530,7 @@ export function OnboardingTutorialModal({
       id="onboarding-tutorial-fullscreen"
       className="fixed inset-0 z-[9999] bg-white dark:bg-[#000000] flex flex-col justify-between overflow-y-auto select-none font-sans text-slate-900 dark:text-white"
     >
-      <div className="w-full max-w-sm sm:max-w-md mx-auto flex-1 flex flex-col justify-between p-5 sm:p-7 min-h-screen">
+      <div className="w-full max-w-sm sm:max-w-md mx-auto flex-1 flex flex-col justify-between p-5 sm:p-7 min-h-[100dvh]">
         
         {/* Top Header & Segmented Progress Bar (matches the exact reference layout) */}
         <div className="w-full pt-2">
@@ -544,9 +554,10 @@ export function OnboardingTutorialModal({
           {/* Top Navigation Row: Step Tag + Skip Button */}
           <div className="flex items-center justify-between mt-3 px-0.5">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              {currentStep.badge}
+              Passo {currentStepIndex + 1} de {STEPS.length}
             </span>
 
+            {hasAccount ? (
             <button
               type="button"
               id="btn-skip-tutorial-top"
@@ -555,6 +566,7 @@ export function OnboardingTutorialModal({
             >
               Pular
             </button>
+            ) : <span />}
           </div>
         </div>
 
@@ -572,6 +584,7 @@ export function OnboardingTutorialModal({
                 key={idx}
                 type="button"
                 onClick={() => {
+                  if (!hasAccount && idx > walletIdx) { triggerHaptic(20); setCurrentStepIndex(walletIdx); return; }
                   triggerHaptic(8);
                   setCurrentStepIndex(idx);
                 }}
@@ -597,6 +610,25 @@ export function OnboardingTutorialModal({
               {currentStep.description}
             </p>
           </div>
+
+          {['wallet', 'cards', 'people'].includes(currentStep.id) && (
+            <div className={`w-full max-w-sm mt-4 flex items-center gap-2 p-3 rounded-2xl border text-xs font-bold ${
+              isDone
+                ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
+                : currentStep.id === 'wallet'
+                  ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400'
+                  : 'bg-slate-50 dark:bg-[#1C1C1E]/60 border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300'
+            }`}>
+              {isDone ? <CheckCircle2 size={16} className="shrink-0" /> : <Plus size={16} className="shrink-0" />}
+              <span>
+                {isDone
+                  ? (currentStep.id === 'wallet' ? 'Conta cadastrada! Pode seguir.' : currentStep.id === 'cards' ? 'Cartão cadastrado!' : 'Pessoa cadastrada!')
+                  : currentStep.id === 'wallet'
+                    ? 'Passo obrigatório: cadastre ao menos uma conta para continuar.'
+                    : 'Opcional: toque em "' + currentStep.actionText + '" ou siga em frente.'}
+              </span>
+            </div>
+          )}
 
           {/* Feature Highlights Cards */}
           {currentStep.highlights && currentStep.highlights.length > 0 && (
@@ -630,8 +662,8 @@ export function OnboardingTutorialModal({
             onClick={handleNext}
             className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/25 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <span>{isLast ? 'Começar a Usar' : 'Próximo'}</span>
-            {!isLast && <ChevronRight size={18} className="stroke-[2.5]" />}
+            <span>{blockedHere ? 'Cadastrar minha conta' : isLast ? 'Começar a Usar' : 'Próximo'}</span>
+            {!isLast && !blockedHere && <ChevronRight size={18} className="stroke-[2.5]" />}
           </button>
 
           {/* Secondary Action: Contextual Direct Action (e.g. Cadastrar Cartão) or Back */}
@@ -650,7 +682,7 @@ export function OnboardingTutorialModal({
               <div />
             )}
 
-            {currentStep.actionText && (
+            {currentStep.actionText && !isDone && (
               <button
                 type="button"
                 id="btn-tutorial-shortcut"
