@@ -37,6 +37,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { LocalAuthUser } from '../types';
 import { GastoLogo } from './GastoLogo';
+import { LegalTermsModal } from './LegalTermsModal';
 import { triggerHaptic } from '../utils/haptics';
 import {
   BudgetManagementIllustration,
@@ -120,6 +121,8 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [legalOpen, setLegalOpen] = useState<null | 'privacy' | 'terms'>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -241,6 +244,11 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
     const rawInput = usernameOrEmail.trim();
     if (!rawInput) {
       setErrorMsg('Por favor, informe seu e-mail ou telefone.');
+      return;
+    }
+
+    if (isSignUp && !acceptedTerms) {
+      setErrorMsg('Para criar sua conta, é necessário ter 18 anos ou mais e aceitar os Termos de Uso e a Política de Privacidade.');
       return;
     }
 
@@ -926,6 +934,25 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
                       </div>
                     )}
 
+                    {/* Consentimento (LGPD) */}
+                    {isSignUp && (
+                      <label className="flex items-start gap-2 cursor-pointer select-none px-0.5">
+                        <input
+                          id="input-signup-accept-terms"
+                          type="checkbox"
+                          checked={acceptedTerms}
+                          onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded-md border-slate-300 dark:border-white/20 accent-emerald-600 cursor-pointer shrink-0"
+                        />
+                        <span className="text-xs text-slate-600 dark:text-slate-300 leading-snug">
+                          Li e aceito os{' '}
+                          <button type="button" onClick={() => setLegalOpen('terms')} className="font-bold text-emerald-600 dark:text-emerald-400 underline">Termos de Uso</button>
+                          {' '}e a{' '}
+                          <button type="button" onClick={() => setLegalOpen('privacy')} className="font-bold text-emerald-600 dark:text-emerald-400 underline">Política de Privacidade</button>, e declaro ter 18 anos ou mais.
+                        </span>
+                      </label>
+                    )}
+
                     {/* Remember Me */}
                     {!isSignUp && (
                       <div className="flex items-center justify-between pt-0.5 px-0.5">
@@ -1028,13 +1055,20 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
               {/* Bottom Trust & Security Indicator */}
               <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 pt-4 text-center">
                 <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
-                <span>Ambiente seguro • Criptografia de ponta a ponta</span>
+                <span>Ambiente seguro • Dados criptografados em trânsito e em repouso</span>
               </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center leading-snug">
+                Ao continuar, você concorda com os{' '}
+                <button type="button" onClick={() => setLegalOpen('terms')} className="underline">Termos de Uso</button>
+                {' '}e a{' '}
+                <button type="button" onClick={() => setLegalOpen('privacy')} className="underline">Política de Privacidade</button>.
+              </p>
             </div>
           </motion.div>
         )}
 
       </div>
+      <LegalTermsModal isOpen={legalOpen !== null} onClose={() => setLegalOpen(null)} initialTab={legalOpen ?? 'privacy'} />
     </div>
   );
 }

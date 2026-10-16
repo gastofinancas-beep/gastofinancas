@@ -43,10 +43,10 @@ function validateTwilioSignature(
     .update(fullUrl)
     .digest('base64');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(twilioSignature)
-  );
+  const a = Buffer.from(expected);
+  const b = Buffer.from(twilioSignature);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export const handler: Handler = async (event, context) => {
@@ -61,12 +61,14 @@ export const handler: Handler = async (event, context) => {
     const twilioSignature = event.headers['x-twilio-signature'] || '';
     const webhookUrl = process.env.WEBHOOK_URL || '';
 
-    if (twilioAuthToken && webhookUrl) {
-      const rawParams = querystring.parse(event.body || '') as Record<string, string>;
-      const isValid = validateTwilioSignature(twilioAuthToken, twilioSignature, webhookUrl, rawParams);
-      if (!isValid) {
-        return { statusCode: 403, body: 'Forbidden' };
-      }
+    // Falha fechada: sem token e URL configurados, ninguém pode usar o webhook.
+    if (!twilioAuthToken || !webhookUrl) {
+      return { statusCode: 403, body: 'Forbidden' };
+    }
+    const rawParams = querystring.parse(event.body || '') as Record<string, string>;
+    const isValid = validateTwilioSignature(twilioAuthToken, twilioSignature, webhookUrl, rawParams);
+    if (!isValid) {
+      return { statusCode: 403, body: 'Forbidden' };
     }
 
     // 3. Lê a mensagem enviada pelo Twilio/WhatsApp (vem em formato URL Encoded)

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { X, ShieldCheck, FileText, Lock, Database, Trash2, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const PRIVACY_EMAIL = import.meta.env.VITE_PRIVACY_EMAIL;
+
 interface LegalTermsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -115,41 +117,79 @@ export function LegalTermsModal({
                 <section className="space-y-1.5">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <Database size={15} className="text-emerald-500" />
-                    1. Coleta e Finalidade dos Dados
+                    1. Dados que coletamos e para quê
                   </h3>
                   <p>
-                    O aplicativo coleta exclusivamente as informações financeiras que você insere de forma ativa (como descrição de despesas, valores, categorias de gastos, cartões e caixinhas de economia) para gerar relatórios, previsões de faturas e consolidação de saldos.
+                    Coletamos apenas o necessário para o app funcionar:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Conta:</strong> e-mail ou telefone/usuário, nome e foto (quando você entra com Google ou Apple).</li>
+                    <li><strong>Dados financeiros que você insere:</strong> despesas, rendas, cartões, caixinhas, carteira, assinaturas e registros de renda extra.</li>
+                    <li><strong>Dados opcionais do perfil:</strong> CPF, data de nascimento, telefone/WhatsApp, chave Pix e profissão. Só preenchemos se você informar, e você pode apagar quando quiser.</li>
+                    <li><strong>Dados de terceiros que você cadastra:</strong> nome, telefone e chave Pix de pessoas com quem você divide gastos. Você deve cadastrá-los apenas para uso pessoal e organização das suas contas.</li>
+                    <li><strong>Dados técnicos:</strong> identificadores de sessão e de notificação (push) do seu aparelho, quando você ativa os avisos.</li>
+                  </ul>
+                  <p>
+                    Usamos esses dados para gerar relatórios, previsões de fatura, avisos que você escolher ativar e para manter sua conta segura.
                   </p>
                 </section>
-
                 <section className="space-y-1.5">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Lock size={15} className="text-emerald-500" />
-                    2. Armazenamento e Segurança
+                    <ShieldCheck size={15} className="text-emerald-500" />
+                    2. Base legal (LGPD, art. 7º)
                   </h3>
                   <p>
-                    Seus dados são protegidos por regras estritas de segurança em nuvem (Google Cloud / Firebase Firestore). O acesso aos seus lançamentos financeiros é restrito exclusivamente ao seu identificador único de usuário autenticado (<code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[10px]">request.auth.uid == userId</code>). Nenhum outro usuário ou terceiro tem permissão de leitura ou escrita sobre seus registros.
+                    Tratamos seus dados para <strong>executar o serviço que você contratou</strong> (conta e controle financeiro), com base no seu <strong>consentimento</strong> para dados opcionais e avisos (e-mail, push, WhatsApp), e no nosso <strong>legítimo interesse</strong> em segurança e prevenção a fraudes. Você pode revogar o consentimento a qualquer momento.
                   </p>
                 </section>
-
                 <section className="space-y-1.5">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <FileText size={15} className="text-emerald-500" />
-                    3. Não Compartilhamento com Terceiros
+                    3. Com quem os dados são compartilhados
                   </h3>
                   <p>
-                    O <strong>Gastô?</strong> não comercializa, não monetiza e não transfere seus dados pessoais ou movimentações bancárias para anunciantes, birôs de crédito ou parceiros comerciais.
+                    Não vendemos nem alugamos seus dados, e não os repassamos a anunciantes ou birôs de crédito. Para o app funcionar, usamos prestadores (operadores) que tratam dados em nosso nome:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Google (Firebase):</strong> autenticação e banco de dados.</li>
+                    <li><strong>Netlify:</strong> hospedagem do aplicativo.</li>
+                    <li><strong>Provedor de e-mail:</strong> envio dos avisos de fatura, somente se você ativar essa opção.</li>
+                  </ul>
+                  <p>
+                    Alguns desses prestadores armazenam dados fora do Brasil. Nesses casos, a transferência internacional ocorre conforme o art. 33 da LGPD.
                   </p>
                 </section>
-
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Lock size={15} className="text-emerald-500" />
+                    4. Segurança
+                  </h3>
+                  <p>
+                    Seus dados ficam no Firebase com regras de acesso que permitem que <strong>somente a sua conta</strong> leia e grave seus registros. A conexão é protegida por HTTPS, o PIN do app é guardado apenas como hash, e os dados são cifrados em trânsito e em repouso pela infraestrutura do Google. Em caso de incidente de segurança com risco relevante, comunicaremos você e a ANPD, conforme o art. 48 da LGPD.
+                  </p>
+                </section>
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Database size={15} className="text-emerald-500" />
+                    5. Por quanto tempo guardamos
+                  </h3>
+                  <p>
+                    Mantemos seus dados enquanto sua conta estiver ativa. Ao excluir a conta, seus dados são apagados do banco de dados. Cópias técnicas de segurança do provedor podem permanecer por um curto período até serem sobrescritas.
+                  </p>
+                </section>
                 <section className="space-y-1.5">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <Trash2 size={15} className="text-rose-500" />
-                    4. Exclusão e Portabilidade dos Dados (LGPD)
+                    6. Seus direitos como titular
                   </h3>
                   <p>
-                    Você é proprietário de todos os seus dados. É possível exportar seus relatórios e planilhas a qualquer momento pela ferramenta de exportação, bem como excluir permanentemente sua conta e todos os dados vinculados diretamente nas configurações do seu perfil.
+                    Você pode, a qualquer momento (LGPD, art. 18): confirmar se tratamos seus dados, acessá-los, corrigi-los, pedir portabilidade, eliminar dados, saber com quem os compartilhamos e revogar consentimentos. No app: edite em <strong>Perfil</strong>, baixe seus relatórios em <strong>Exportar Dados</strong> e exclua tudo em <strong>Excluir minha conta</strong>.
                   </p>
+                  {PRIVACY_EMAIL && (
+                    <p>
+                      Para outros pedidos ou dúvidas, fale com o encarregado de dados: <a href={`mailto:${PRIVACY_EMAIL}`} className="font-semibold text-emerald-600 dark:text-emerald-400 underline">{PRIVACY_EMAIL}</a>.
+                    </p>
+                  )}
                   {onOpenDeleteAccount && (
                     <div className="pt-1">
                       <button
@@ -158,7 +198,7 @@ export function LegalTermsModal({
                           onClose();
                           onOpenDeleteAccount();
                         }}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 dark:bg-white/[0.06] dark:hover:bg-rose-950/20 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 dark:bg-white/[0.06] dark:hover:bg-rose-950/20 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
                       >
                         <Trash2 size={13} className="shrink-0 opacity-70" />
                         <span>Excluir minha conta</span>
@@ -184,6 +224,24 @@ export function LegalTermsModal({
                   </h3>
                   <p>
                     O usuário é responsável pela exatidão dos dados inseridos, bem como pela custódia e proteção de sua conta de acesso (e-mail ou conta Google).
+                  </p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    2.1 Idade mínima
+                  </h3>
+                  <p>
+                    O uso do aplicativo é destinado a pessoas com <strong>18 anos ou mais</strong>. Ao criar sua conta, você declara ter essa idade.
+                  </p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    2.2 Dados de outras pessoas
+                  </h3>
+                  <p>
+                    Ao cadastrar dados de terceiros (como nome, telefone ou chave Pix de quem divide gastos com você), você declara que o faz para uso pessoal e que tem motivo legítimo para isso. Esses dados não são usados pelo Gastô? para qualquer outra finalidade.
                   </p>
                 </section>
 
