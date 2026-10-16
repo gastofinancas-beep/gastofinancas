@@ -23,8 +23,16 @@ service cloud.firestore {
       return !(k in request.resource.data) || request.resource.data[k] is map;
     }
 
+    // Campos de assinatura nunca podem ser gravados pelo cliente (somente pelo servidor/Admin SDK).
+    function profileOk() {
+      return !('profile' in request.resource.data)
+        || !request.resource.data.profile.keys().hasAny(
+             ['subscriptionStatus', 'planId', 'trialStartDate', 'trialEndsAt',
+              'subscriptionEndsAt', 'customerId']);
+    }
+
     function shapeOk() {
-      return listOk('expenses') && listOk('incomes') && listOk('cards')
+      return profileOk() && listOk('expenses') && listOk('incomes') && listOk('cards')
         && listOk('people') && listOk('folders') && listOk('boxes')
         && listOk('paidBills') && listOk('subscriptions')
         && listOk('driverTrips') && listOk('driverExpenses')
