@@ -3885,7 +3885,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Conexão protegida (HTTPS) • Só você acessa seus dados</span>
+            <span>Privacidade & Dados Criptografados</span>
             <span>•</span>
             <button 
               type="button" 
