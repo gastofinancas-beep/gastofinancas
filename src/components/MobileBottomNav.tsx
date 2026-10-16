@@ -357,6 +357,7 @@ export function MobileBottomNav({
             <button
               type="button"
               id="mobile-nav-add-expense"
+              data-tour="add-expense"
               onClick={() => setIsSpeedDialOpen(!isSpeedDialOpen)}
               className="relative flex flex-col items-center justify-center py-1 cursor-pointer select-none active:scale-95 transition-transform"
               title="Adicionar Despesa / Ações Rápidas"
