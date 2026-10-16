@@ -51,7 +51,6 @@ interface ExportModalProps {
   freelanceEntries?: FreelanceEntry[];
   freelanceExpenses?: FreelanceExpense[];
   subscriptions?: SubscriptionItem[];
-  onDownloadAllData?: () => void | Promise<void>;
 }
 
 export function ExportModal({
@@ -72,7 +71,6 @@ export function ExportModal({
   freelanceEntries = [],
   freelanceExpenses = [],
   subscriptions = [],
-  onDownloadAllData,
 }: ExportModalProps) {
   const [copied, setCopied] = useState(false);
   const [exportSection, setExportSection] = useState<'all' | 'cards' | 'wallet' | 'investments' | 'extra'>('all');
@@ -356,17 +354,6 @@ export function ExportModal({
             </Button>
           </div>
 
-          {onDownloadAllData && (
-            <div className="pt-1 text-center">
-              <button
-                type="button"
-                onClick={() => { void onDownloadAllData(); }}
-                className="text-[11px] font-semibold text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 underline"
-              >
-                Baixar todos os meus dados (JSON, LGPD)
-              </button>
-            </div>
-          )}
         </div>
         </motion.div>
       </div>

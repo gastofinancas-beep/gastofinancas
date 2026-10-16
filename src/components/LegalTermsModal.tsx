@@ -183,7 +183,7 @@ export function LegalTermsModal({
                     6. Seus direitos como titular
                   </h3>
                   <p>
-                    Você pode, a qualquer momento (LGPD, art. 18): confirmar se tratamos seus dados, acessá-los, corrigi-los, pedir portabilidade, eliminar dados, saber com quem os compartilhamos e revogar consentimentos. No app: edite em <strong>Perfil</strong>, baixe uma cópia em <strong>Exportar Dados</strong> e exclua tudo em <strong>Excluir minha conta</strong>.
+                    Você pode, a qualquer momento (LGPD, art. 18): confirmar se tratamos seus dados, acessá-los, corrigi-los, pedir portabilidade, eliminar dados, saber com quem os compartilhamos e revogar consentimentos. No app: edite em <strong>Perfil</strong>, baixe seus relatórios em <strong>Exportar Dados</strong> e exclua tudo em <strong>Excluir minha conta</strong>.
                   </p>
                   {PRIVACY_EMAIL && (
                     <p>
