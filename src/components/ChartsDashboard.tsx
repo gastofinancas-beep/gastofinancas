@@ -1024,7 +1024,7 @@ export function ChartsDashboard({
       {/* 2. FLOATING QUICK ACTION CARD (Image 1 & User's Image 2)                  */}
       {/* ========================================================================= */}
       <div className="relative z-20 bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm border border-slate-200/80 dark:border-white/[0.08]">
-        <div className="grid grid-cols-4 gap-2 sm:gap-4 text-center">
+        <div data-tour="dash-actions" className="grid grid-cols-4 gap-2 sm:gap-4 text-center">
           {/* Receita */}
           <button
             type="button"
@@ -1086,7 +1086,7 @@ export function ChartsDashboard({
       {/* ========================================================================= */}
       {/* 3. GASTOS DO MÊS - CARDS COM CIRCULAR PROGRESS (Image 1 reference)         */}
       {/* ========================================================================= */}
-      <div className="space-y-3 pt-1">
+      <div data-tour="dash-month" className="space-y-3 pt-1">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
             Gastos do Mês

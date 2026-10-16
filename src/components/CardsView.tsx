@@ -227,7 +227,7 @@ export function CardsView({
       {/* ========================================================================= */}
       {/* 1. CABEÇALHO MODERNO E LIMPO */}
       {/* ========================================================================= */}
-      <div className="flex items-center justify-between gap-3 px-1">
+      <div data-tour="cards-header" className="flex items-center justify-between gap-3 px-1">
         <div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
             Meus Cartões

@@ -1453,7 +1453,7 @@ export function WalletView({
                     </div>
                   )}
 
-                  <div className="flex items-center gap-1.5">
+                  <div data-tour="wallet-actions" className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => onOpenAddTransaction('expense', account.id)}

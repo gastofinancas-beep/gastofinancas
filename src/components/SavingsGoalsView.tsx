@@ -572,6 +572,7 @@ export function SavingsGoalsView({
 
           <button
             type="button"
+            data-tour="add-goal"
             onClick={() => handleOpenCreateGoalModal()}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer self-start sm:self-auto active:scale-95"
           >

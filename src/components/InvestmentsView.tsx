@@ -140,6 +140,7 @@ export function InvestmentsView({
 
               <button
                 type="button"
+                data-tour="add-box"
                 onClick={() => onOpenAddBox(selectedFolderId !== 'all' ? selectedFolderId : undefined)}
                 className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4.5 py-2.5 rounded-2xl text-xs font-semibold shadow-sm hover:shadow transition-all cursor-pointer select-none"
               >

@@ -424,6 +424,7 @@ export function MobileBottomNav({
             <button
               type="button"
               id="mobile-nav-more"
+              data-tour="nav-more"
               onClick={() => setIsMoreSheetOpen(true)}
               className="relative flex flex-col items-center justify-center py-1 cursor-pointer select-none active:scale-95 transition-transform"
             >
