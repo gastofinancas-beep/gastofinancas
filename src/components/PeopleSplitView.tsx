@@ -642,6 +642,7 @@ export function PeopleSplitView({
         <button
           type="button"
           id="btn-add-new-person"
+          data-tour="add-person"
           onClick={() => {
             triggerHaptic(10);
             onOpenAddPerson();

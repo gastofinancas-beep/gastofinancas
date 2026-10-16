@@ -333,7 +333,7 @@ export function AddWalletTransactionModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[200] bg-slate-100 dark:bg-[#09090B] overflow-y-auto flex flex-col w-full h-full min-h-screen"
+      className="fixed inset-0 z-[200] bg-slate-100 dark:bg-[#09090B] overflow-y-auto overscroll-contain flex flex-col w-full h-[100dvh]"
     >
       
       {/* Full-Screen Header with Circular Back Button */}
@@ -376,7 +376,7 @@ export function AddWalletTransactionModal({
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-between">
+      <main className="flex-1 max-w-xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-between" style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
         
         {/* ========================================================================= */}
         {/* ETAPA 1: VALOR, CONTA E TECLADO NUMÉRICO                                 */}
@@ -992,7 +992,7 @@ export function AddWalletTransactionModal({
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-2 flex items-center gap-2.5 sm:gap-3">
+            <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 bg-slate-100/95 dark:bg-[#09090B]/95 backdrop-blur flex items-center gap-2.5 sm:gap-3" style={{ paddingBottom: 'max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem))' }}>
               <Button
                 type="button"
                 variant="secondary"

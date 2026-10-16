@@ -1356,6 +1356,7 @@ export function WalletView({
             return (
               <motion.div
                 key={account.id}
+                data-tour="account-card"
                 whileHover={{ y: -2 }}
                 className="relative rounded-3xl p-5 bg-white dark:bg-[#1C1C1E] border border-slate-200/60 dark:border-white/[0.08] shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
               >
@@ -1452,7 +1453,7 @@ export function WalletView({
                     </div>
                   )}
 
-                  <div className="flex items-center gap-1.5">
+                  <div data-tour="wallet-actions" className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => onOpenAddTransaction('expense', account.id)}
@@ -1491,6 +1492,7 @@ export function WalletView({
             <div className="col-span-full">
               <button
                 type="button"
+                data-tour="add-account"
                 onClick={onOpenAddAccount}
                 className="w-full rounded-3xl border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-emerald-500/50 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/10 p-8 flex flex-col items-center justify-center text-center gap-3 transition-all cursor-pointer group select-none"
               >

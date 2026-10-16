@@ -127,6 +127,7 @@ export function SubscriptionsView({
 
           <button
             type="button"
+            data-tour="add-subscription"
             onClick={onOpenAddSubscription}
             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
           >

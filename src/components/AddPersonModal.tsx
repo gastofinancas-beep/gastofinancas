@@ -128,7 +128,7 @@ export function AddPersonModal({ isOpen, onClose, onSave, editingPerson }: AddPe
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[200] bg-white dark:bg-[#121214] overflow-y-auto flex flex-col w-full h-full min-h-screen text-slate-900 dark:text-slate-100 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[200] bg-white dark:bg-[#121214] overflow-y-auto flex flex-col w-full h-[100dvh] text-slate-900 dark:text-slate-100 animate-in fade-in duration-150"
     >
       {/* Header Limpo e Moderno */}
       <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#121214]/90 backdrop-blur-md border-b border-slate-100 dark:border-white/[0.06] px-4 sm:px-6 py-3.5 flex items-center justify-between shrink-0">

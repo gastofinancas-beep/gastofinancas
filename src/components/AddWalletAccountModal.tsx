@@ -287,6 +287,8 @@ interface AddWalletAccountModalProps {
   onSave: (account: Partial<WalletAccount>) => void;
   onDelete?: (id: string) => void;
   editingAccount?: WalletAccount | null;
+  /** Preenche uma conta de teste (usado pelo tutorial guiado). */
+  testDraft?: boolean;
 }
 
 export function AddWalletAccountModal({
@@ -295,6 +297,7 @@ export function AddWalletAccountModal({
   onSave,
   onDelete,
   editingAccount,
+  testDraft = false,
 }: AddWalletAccountModalProps) {
   const [name, setName] = useState('');
   const [institution, setInstitution] = useState('Nubank');
@@ -339,17 +342,19 @@ export function AddWalletAccountModal({
       setBankSearch('');
     } else {
       // Default to first preset
-      const preset = COMPREHENSIVE_BANKS[0];
-      setName('Nubank (Conta Principal)');
+      const preset = testDraft
+        ? (COMPREHENSIVE_BANKS.find((b) => b.id === 'outro') || COMPREHENSIVE_BANKS[0])
+        : COMPREHENSIVE_BANKS[0];
+      setName(testDraft ? 'Conta Teste' : 'Nubank (Conta Principal)');
       setInstitution(preset.institution);
       setAccountType(preset.accountType);
-      setInitialBalance(0);
-      setCurrentBalance(0);
+      setInitialBalance(testDraft ? 1000 : 0);
+      setCurrentBalance(testDraft ? 1000 : 0);
       setColor(preset.color);
       setGradient(preset.gradient);
       setPixKey('');
       setIncludeInTotal(true);
-      setIsDefault(false);
+      setIsDefault(testDraft);
       setNotes('');
       setIsBankSelectorOpen(false);
       setBankSearch('');
@@ -475,6 +480,7 @@ export function AddWalletAccountModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              data-tour="save-account"
               onClick={handleSubmit}
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
             >
