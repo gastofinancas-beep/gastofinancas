@@ -154,7 +154,6 @@ export function LegalTermsModal({
                     <li><strong>Google (Firebase):</strong> autenticação e banco de dados.</li>
                     <li><strong>Netlify:</strong> hospedagem do aplicativo.</li>
                     <li><strong>Provedor de e-mail:</strong> envio dos avisos de fatura, somente se você ativar essa opção.</li>
-                    <li><strong>Twilio/WhatsApp e Google Gemini:</strong> somente se você usar o lançamento de gastos por mensagem de WhatsApp.</li>
                   </ul>
                   <p>
                     Alguns desses prestadores armazenam dados fora do Brasil. Nesses casos, a transferência internacional ocorre conforme o art. 33 da LGPD.
