@@ -1028,7 +1028,7 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
               {/* Bottom Trust & Security Indicator */}
               <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 pt-4 text-center">
                 <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
-                <span>Ambiente seguro • Criptografia de ponta a ponta</span>
+                <span>Ambiente seguro • Conexão protegida (HTTPS) e acesso só com a sua conta</span>
               </div>
             </div>
           </motion.div>

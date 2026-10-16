@@ -606,7 +606,7 @@ export function DeleteAccountModal({
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-rose-500 font-bold">•</span>
-                      <span><strong>Segurança e Biometria:</strong> PIN de 6 dígitos criptografado, credenciais Face ID / Touch ID locais.</span>
+                      <span><strong>Segurança e Biometria:</strong> PIN de 6 dígitos guardado apenas como hash seguro, credenciais Face ID / Touch ID locais.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-rose-500 font-bold">•</span>
