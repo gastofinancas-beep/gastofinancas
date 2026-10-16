@@ -317,7 +317,11 @@ export default function App() {
     if (!currentUser) return;
 
     let isMounted = true;
+    // Bloqueia o salvamento na nuvem até a carga terminar com sucesso
+    isInitialLoadRef.current = true;
+    setDataLoadedFromCloud(false);
     const loadUserData = async () => {
+      let loadedOk = false;
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         const docSnap = await getDoc(userDocRef);
@@ -422,10 +426,12 @@ export default function App() {
             setIsTutorialOpen(true);
           }
         }
+        loadedOk = true;
       } catch (err) {
+        // Se a carga falhar, não sincroniza: evita sobrescrever os dados da nuvem com dados locais
         console.error('Error loading data from Firestore:', err);
       } finally {
-        if (isMounted) {
+        if (isMounted && loadedOk) {
           setDataLoadedFromCloud(true);
           isInitialLoadRef.current = false;
         }

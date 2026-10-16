@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada usuário lê e grava apenas o próprio documento.
+    // O campo "plan" (assinatura) só pode ser alterado pelo servidor (Admin SDK/webhook de pagamento).
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && !('plan' in request.resource.data);
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.get('plan', null) == resource.data.get('plan', null);
+      allow delete: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
