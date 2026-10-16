@@ -4,6 +4,7 @@ import { onAuthStateChanged, User, signOut, updateProfile } from 'firebase/auth'
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
 import { sanitizeForFirestore } from './lib/sanitizeFirestore';
+import { mergeFirstSync, LIST_FIELDS, OBJECT_FIELDS } from './lib/firstSyncMerge';
 import { AuthView, LocalAuthUser } from './components/AuthView';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -776,6 +777,37 @@ export default function App() {
       console.warn('Local cache hydration notice:', e);
     }
 
+    // Migração segura: dados que a pessoa já tinha só no navegador nunca são perdidos.
+    const FIELD_TO_STORAGE_KEY: Record<string, string> = {
+      expenses: STORAGE_KEYS.EXPENSES, incomes: STORAGE_KEYS.INCOMES, cards: STORAGE_KEYS.CARDS,
+      people: STORAGE_KEYS.PEOPLE, folders: STORAGE_KEYS.FOLDERS, boxes: STORAGE_KEYS.BOXES,
+      paidBills: STORAGE_KEYS.PAID_BILLS, subscriptions: STORAGE_KEYS.SUBSCRIPTIONS,
+      driverTrips: STORAGE_KEYS.DRIVER_TRIPS, driverExpenses: STORAGE_KEYS.DRIVER_EXPENSES,
+      freelanceEntries: STORAGE_KEYS.FREELANCE_ENTRIES, freelanceExpenses: STORAGE_KEYS.FREELANCE_EXPENSES,
+      walletAccounts: STORAGE_KEYS.WALLET_ACCOUNTS, walletTransactions: STORAGE_KEYS.WALLET_TRANSACTIONS,
+      accumulationGoals: STORAGE_KEYS.ACCUMULATION_GOALS,
+      driverGoals: STORAGE_KEYS.DRIVER_GOALS, extraProfile: STORAGE_KEYS.EXTRA_PROFILE,
+      freelanceGoals: STORAGE_KEYS.FREELANCE_GOALS, monthlyTargets: STORAGE_KEYS.MONTHLY_TARGETS,
+      profile: STORAGE_KEYS.PROFILE,
+    };
+    const mergedFlagKey = `gasto_cloud_merged_v1_${targetUid}`;
+    const readLocalSnapshot = (): Record<string, any> => {
+      const out: Record<string, any> = {};
+      for (const field of [...LIST_FIELDS, ...OBJECT_FIELDS]) {
+        try {
+          const raw = localStorage.getItem(userKeyPrefix + FIELD_TO_STORAGE_KEY[field]);
+          if (raw) out[field] = JSON.parse(raw);
+        } catch {}
+      }
+      return out;
+    };
+    const isFirstCloudSync = () => {
+      try { return localStorage.getItem(mergedFlagKey) !== 'true'; } catch { return false; }
+    };
+    const markCloudSynced = () => {
+      try { localStorage.setItem(mergedFlagKey, 'true'); } catch {}
+    };
+
     // 2. REAL-TIME FIRESTORE SUBSCRIPTION: Seamless sync between Browser, PWA & Multiple Tabs
     let isMounted = true;
     const userDocRef = doc(db, 'users', targetUid);
@@ -784,7 +816,21 @@ export default function App() {
       if (!isMounted) return;
 
       if (docSnap.exists()) {
-        const data = docSnap.data();
+        let data = docSnap.data();
+        if (hasLocalData && isFirstCloudSync()) {
+          // Aguarda a resposta do servidor: nunca mescla com cópia antiga do cache.
+          if (docSnap.metadata.fromCache) return;
+          const localSnapshot = readLocalSnapshot();
+          try {
+            localStorage.setItem(`gasto_premerge_backup_${targetUid}`, JSON.stringify({ savedAt: new Date().toISOString(), local: localSnapshot, cloud: data }));
+          } catch {}
+          data = mergeFirstSync(data, localSnapshot);
+          setDoc(userDocRef, sanitizeForFirestore({ ...data, updatedAt: new Date().toISOString() }), { merge: true })
+            .then(markCloudSynced)
+            .catch(err => console.warn('First sync merge notice:', err));
+        } else if (isFirstCloudSync() && !docSnap.metadata.fromCache) {
+          markCloudSynced();
+        }
         isApplyingRemoteUpdateRef.current = true;
 
         if (Array.isArray(data.expenses)) {
@@ -904,6 +950,20 @@ export default function App() {
         setDataLoadedFromCloud(true);
         isInitialLoadRef.current = false;
         setTimeout(() => { isApplyingRemoteUpdateRef.current = false; }, 150);
+      } else if (!docSnap.exists() && !docSnap.metadata.fromCache && hasLocalData) {
+        // Já havia dados só no navegador: sobe tudo para a nuvem, sem recriar dados iniciais.
+        const localSnapshot = readLocalSnapshot();
+        if (localSnapshot.profile) {
+          for (const key of ['subscriptionStatus', 'planId', 'trialStartDate', 'trialEndsAt', 'subscriptionEndsAt', 'customerId']) {
+            delete localSnapshot.profile[key];
+          }
+        }
+        setDoc(userDocRef, sanitizeForFirestore({ ...localSnapshot, updatedAt: new Date().toISOString() }), { merge: true })
+          .then(markCloudSynced)
+          .catch(err => console.warn('First upload notice:', err));
+        loadedUidRef.current = targetUid;
+        setDataLoadedFromCloud(true);
+        isInitialLoadRef.current = false;
       } else if (!docSnap.exists() && !docSnap.metadata.fromCache) {
         // First time initialization in Firestore
         const defaultSelfName = gName ? `Meu (${gName})` : 'Meu';
