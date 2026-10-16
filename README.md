@@ -19,7 +19,6 @@ npm run dev
 | `npm run dev` | servidor local |
 | `npm run build` | gera a versão de produção em `dist/` |
 | `npm run lint` | confere os tipos (TypeScript) |
-| `npm test` | roda os testes das contas de saldo/fatura e da migração de dados |
 
 ## Variáveis de ambiente (Netlify)
 
