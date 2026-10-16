@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" shape-rendering="geometricPrecision">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#E2E8F0" />
+    </linearGradient>
+    <linearGradient id="darkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="50%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#059669" flood-opacity="0.25" />
+    </filter>
+  </defs>
+  <!-- Squircle container -->
+  <rect x="8" y="8" width="496" height="496" rx="138" fill="url(#bgGrad)" stroke="#CBD5E1" stroke-width="12" />
+  
+  <!-- "G" Main Dark Arc -->
+  <path
+    d="M 326 155
+       C 305 141, 281 133, 256 133
+       C 182.5 133, 123 192.5, 123 266
+       C 123 339.5, 182.5 399, 256 399
+       C 273 399, 290 396, 305 390
+       L 305 343
+       C 290 350, 274 353, 256 353
+       C 207.9 353, 169 314.1, 169 266
+       C 169 217.9, 207.9 179, 256 179
+       C 275 179, 292 185, 306 197
+       Z"
+    fill="url(#darkGrad)"
+  />
+  
+  <!-- "G" Middle Horizontal Bar -->
+  <rect x="250" y="228" width="96" height="45" rx="22.5" fill="url(#darkGrad)" />
+
+  <!-- "G" Green Leaf Lower-Right Quadrant -->
+  <path
+    d="M 256 261
+       H 352
+       C 352 314, 309 357, 256 357
+       V 261
+       Z"
+    fill="url(#leafGrad)"
+    filter="url(#shadow)"
+  />
+
+  <circle cx="304" cy="304" r="13" fill="#FFFFFF" fill-opacity="0.85" />
+</svg>
