@@ -682,7 +682,7 @@ export function OnboardingTutorialModal({
               <div />
             )}
 
-            {currentStep.actionText && !isDone && (
+            {currentStep.actionText && !isDone && !blockedHere && (
               <button
                 type="button"
                 id="btn-tutorial-shortcut"
