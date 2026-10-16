@@ -26,6 +26,8 @@ interface GuidedTourProps {
   hasAccount: boolean;
   isAccountModalOpen: boolean;
   goToTab: (tab: MainTabType) => void;
+  /** Pausa o tour (some da tela) enquanto outra janela, como o perfil, estiver aberta. */
+  paused?: boolean;
 }
 
 interface Rect { top: number; left: number; width: number; height: number }
@@ -174,7 +176,7 @@ function buildSteps(hasAccountAtStart: boolean): TourStepDef[] {
   ];
 }
 
-export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, goToTab }: GuidedTourProps) {
+export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, goToTab, paused = false }: GuidedTourProps) {
   const [startedWithAccount, setStartedWithAccount] = useState(hasAccount);
   const [index, setIndex] = useState(0);
 
@@ -204,7 +206,7 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
 
   const rect = useTargetRect(step.target || null, isOpen);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!isOpen || paused || typeof document === 'undefined') return null;
 
   const interactive = step.kind === 'tap-new' || step.kind === 'form';
   const canLeave = hasAccount;
@@ -229,6 +231,13 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
   const shadeLight = 'fixed bg-black/30';
   const shadeCls = !hole && step.tab ? shadeLight : shade;
 
+  // Toca no elemento real em vez de deixar o toque "vazar" para o que estiver embaixo.
+  const pressTarget = () => {
+    if (!step.target) return;
+    const el = findVisible(step.target);
+    if (el) { triggerHaptic(10); el.click(); }
+  };
+
   const advance = () => {
     triggerHaptic(8);
     if (isLast) onClose();
@@ -245,9 +254,11 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
           <div className={shade} style={{ pointerEvents: 'auto', top: hole.top, left: hole.left + hole.width, right: 0, height: hole.height }} />
           <div
             className="fixed rounded-2xl border-2 border-emerald-400"
+            onClick={interactive ? pressTarget : undefined}
             style={{
               top: hole.top, left: hole.left, width: hole.width, height: hole.height,
-              pointerEvents: interactive ? 'none' : 'auto',
+              pointerEvents: 'auto',
+              cursor: interactive ? 'pointer' : 'default',
               animation: 'tourPulse 1.6s ease-in-out infinite',
             }}
           />
