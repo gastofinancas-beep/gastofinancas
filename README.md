@@ -1,25 +1,40 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Gastô?
 
-# Run and deploy your AI Studio app
+Controle financeiro pessoal: cartões e faturas, carteira com várias contas, caixinhas, divisão de gastos com pessoas, assinaturas e módulos para quem trabalha por conta própria.
 
-This contains everything you need to run your app locally.
+App em React + Vite + Tailwind, com Firebase (login e Firestore) e funções no Netlify. Publicado em https://gastofinancas.netlify.app a cada merge na `main`.
 
-View your app in AI Studio: https://ai.studio/apps/2d2d5371-e20c-48ba-b345-fad87b9906c1
+## Rodar localmente
 
-## Configuração de Autenticação Firebase (Domínios Autorizados no Netlify)
+```bash
+npm install
+cp .env.example .env.local   # preencha as variáveis VITE_FIREBASE_*
+npm run dev
+```
 
-Para garantir que o **Google Sign-In** funcione corretamente no Netlify e em dispositivos móveis:
+## Comandos
 
-1. Acesse o [Console do Firebase](https://console.firebase.google.com/).
-2. Selecione o seu projeto e vá em **Authentication > Configurações (Settings) > Domínios Autorizados (Authorized Domains)**.
-3. Adicione o seu domínio do Netlify (ex: `seu-app.netlify.app`) e quaisquer domínios customizados.
-4. Sem essa configuração, o Firebase cancela requisições OAuth iniciadas a partir do seu site publicado.
+| Comando | O que faz |
+| --- | --- |
+| `npm run dev` | servidor local |
+| `npm run build` | gera a versão de produção em `dist/` |
+| `npm run lint` | confere os tipos (TypeScript) |
+| `npm test` | roda os testes das contas de saldo/fatura e da migração de dados |
 
+## Variáveis de ambiente (Netlify)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Veja `.env.example`. As que começam com `VITE_` vão para o navegador: nunca coloque segredos nelas.
+
+- `VITE_FIREBASE_*`: configuração do cliente Firebase (inclui `VITE_FIREBASE_DATABASE_ID`).
+- `VITE_PRIVACY_EMAIL`: e-mail do encarregado de dados (LGPD), exibido na Política de Privacidade.
+- `VITE_SUPPORT_WHATSAPP` / `VITE_SUPPORT_EMAIL` (opcionais): ligam o link "Ajuda & Suporte" no app.
+
+## Dados e segurança
+
+- Os dados de cada pessoa ficam em `users/{uid}` no Firestore e sincronizam em tempo real por login.
+- As regras estão em `firestore.rules` (acesso só do próprio dono; campos de plano só o servidor grava). Publique-as no console do Firebase, no banco usado pelo app.
+- `src/lib/firstSyncMerge.ts` faz a migração segura de quem usava só dados locais.
+
+## Login: domínios autorizados
+
+Para o Google Sign-In funcionar no Netlify e no celular: Firebase Console, Authentication, Settings, Authorized domains, e adicione o domínio do Netlify e qualquer domínio próprio.

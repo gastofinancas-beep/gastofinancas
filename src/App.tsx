@@ -21,6 +21,7 @@ import { ExportModal } from './components/ExportModal';
 import { migrateBoxHistoryIfNeeded } from './lib/investmentHistory';
 import { ConfirmDialogModal } from './components/ConfirmDialogModal';
 import { GuidedTour } from './components/GuidedTour';
+import { supportUrl } from './lib/support';
 import { ProfileModal } from './components/ProfileModal';
 import { AddFreelanceEntryModal } from './components/AddFreelanceEntryModal';
 import { AddFreelanceExpenseModal } from './components/AddFreelanceExpenseModal';
@@ -4058,6 +4059,19 @@ function computeDataSignature(data: any): string {
             >
               Guia & Tutorial
             </button>
+            {supportUrl && (
+              <>
+                <span>•</span>
+                <a
+                  href={supportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium"
+                >
+                  Ajuda & Suporte
+                </a>
+              </>
+            )}
           </div>
         </footer>
       </main>

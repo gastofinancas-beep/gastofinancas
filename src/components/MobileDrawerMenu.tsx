@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, MainTabType } from '../types';
 import { triggerHaptic } from '../utils/haptics';
+import { supportUrl } from '../lib/support';
 
 interface MobileDrawerMenuProps {
   isOpen: boolean;
@@ -257,6 +258,19 @@ export function MobileDrawerMenu({
                     <HelpCircle size={18} className="stroke-[1.9] text-slate-500 dark:text-slate-400" />
                     <span>Ajuda & Tutorial</span>
                   </button>
+
+                  {supportUrl && (
+                    <a
+                      href={supportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={onClose}
+                      className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-2xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer text-sm font-medium"
+                    >
+                      <HelpCircle size={18} className="stroke-[1.9] text-slate-500 dark:text-slate-400" />
+                      <span>Falar com o suporte</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
