@@ -20,6 +20,7 @@ import {
 import { motion } from 'motion/react';
 import { DriverTrip, DriverExpense, DriverGoals } from '../types';
 
+import { localDateString } from '../utils/financeCalculations';
 interface DriverDaySummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -38,7 +39,7 @@ export function DriverDaySummaryModal({
   dateStr
 }: DriverDaySummaryModalProps) {
   const [copied, setCopied] = useState(false);
-  const targetDate = dateStr || new Date().toISOString().split('T')[0];
+  const targetDate = dateStr || localDateString();
 
   // Day specific calculations
   const daySummary = useMemo(() => {

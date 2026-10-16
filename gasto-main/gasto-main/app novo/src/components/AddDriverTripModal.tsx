@@ -19,6 +19,7 @@ import { DriverTrip, DriverAppType, DriverTripType } from '../types';
 import { APP_CONFIGS } from '../data/initialDriverData';
 import { DriverAppLogo } from './DriverAppLogo';
 
+import { localDateString } from '../utils/financeCalculations';
 interface AddDriverTripModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,7 +48,7 @@ export function AddDriverTripModal({
   const [useManualFee, setUseManualFee] = useState<boolean>(false);
 
   // Details
-  const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(() => localDateString());
   const [time, setTime] = useState<string>(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -88,7 +89,7 @@ export function AddDriverTripModal({
       setGrossAmount('');
       setManualFeeAmount('');
       setUseManualFee(false);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(localDateString());
       const now = new Date();
       setTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
       setDistanceKm('');

@@ -17,6 +17,7 @@ import { motion } from 'motion/react';
 import { DriverExpense, DriverExpenseCategory, DriverAppType } from '../types';
 import { APP_CONFIGS } from '../data/initialDriverData';
 
+import { localDateString } from '../utils/financeCalculations';
 interface AddDriverExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -91,7 +92,7 @@ export function AddDriverExpenseModal({
   const [category, setCategory] = useState<DriverExpenseCategory>('combustivel');
   const [description, setDescription] = useState<string>('Abastecimento');
   const [amount, setAmount] = useState<string>('');
-  const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(() => localDateString());
   const [appLinked, setAppLinked] = useState<DriverAppType | 'geral'>('geral');
   const [liters, setLiters] = useState<string>('');
   const [fuelType, setFuelType] = useState<'gasolina' | 'etanol' | 'gnv' | 'diesel' | 'eletrico'>('etanol');
@@ -111,7 +112,7 @@ export function AddDriverExpenseModal({
       setCategory('combustivel');
       setDescription('Abastecimento');
       setAmount('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(localDateString());
       setAppLinked('geral');
       setLiters('');
       setFuelType('etanol');

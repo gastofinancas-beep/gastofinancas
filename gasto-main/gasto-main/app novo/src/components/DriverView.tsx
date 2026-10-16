@@ -45,6 +45,7 @@ import { AddDriverExpenseModal } from './AddDriverExpenseModal';
 import { DriverGoalsModal } from './DriverGoalsModal';
 import { DriverDaySummaryModal } from './DriverDaySummaryModal';
 
+import { localDateString } from '../utils/financeCalculations';
 interface DriverViewProps {
   trips: DriverTrip[];
   expenses: DriverExpense[];
@@ -88,12 +89,12 @@ export function DriverView({
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
   // Helper dates
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => localDateString(), []);
   
   const sevenDaysAgoStr = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
+    return localDateString(d);
   }, []);
 
   // Filtered trips by period

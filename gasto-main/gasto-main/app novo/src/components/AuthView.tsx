@@ -371,7 +371,7 @@ export function AuthView({ onLocalLogin }: AuthViewProps) {
 
       {/* Social / Alternative Buttons (iOS Pill Style) */}
       <div className="mt-6 pt-5 border-t border-slate-100 space-y-3">
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -385,16 +385,6 @@ export function AuthView({ onLocalLogin }: AuthViewProps) {
               <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z"/>
             </svg>
             <span>Google</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleQuickEntry}
-            disabled={loading}
-            className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100/80 active:scale-95 text-xs font-semibold text-emerald-800 rounded-full border border-emerald-200/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-          >
-            <Sparkles size={14} className="text-amber-500 fill-amber-500" />
-            <span>Modo Demo</span>
           </button>
         </div>
 
@@ -474,15 +464,6 @@ export function AuthView({ onLocalLogin }: AuthViewProps) {
         {/* Right Side (Clean Apple White Form) */}
         <div className="w-[46%] xl:w-[44%] bg-white text-slate-900 flex flex-col justify-between p-10 xl:p-12 relative z-20 shadow-2xl">
           <div className="flex justify-end items-center z-10">
-            <button
-              type="button"
-              onClick={handleQuickEntry}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 text-xs font-semibold tracking-tight transition-all border border-slate-200/80 cursor-pointer shadow-xs"
-            >
-              <Zap size={14} className="text-emerald-600 fill-emerald-600" />
-              <span>Acesso Rápido</span>
-            </button>
           </div>
 
           <div className="my-auto max-w-sm w-full mx-auto py-4">
@@ -524,16 +505,6 @@ export function AuthView({ onLocalLogin }: AuthViewProps) {
                     <span className="text-xl font-black text-[#00FF88]">?</span>
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleQuickEntry}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1f2126] hover:bg-[#282b32] active:scale-95 text-[#00FF88] text-xs font-semibold tracking-tight border border-[#2e323b] cursor-pointer shadow-xs transition-all"
-                >
-                  <Zap size={13} className="text-[#00FF88] fill-[#00FF88]" />
-                  <span>Demo</span>
-                </button>
               </div>
 
               {/* Mobile Center Hero with animated float */}
@@ -596,16 +567,6 @@ export function AuthView({ onLocalLogin }: AuthViewProps) {
                   <ChevronLeft size={16} className="stroke-[2.5]" />
                   <span>Voltar</span>
                 </motion.button>
-
-                <button
-                  type="button"
-                  onClick={handleQuickEntry}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold tracking-tight transition-all border border-emerald-200 cursor-pointer"
-                >
-                  <Zap size={13} className="text-emerald-600 fill-emerald-600" />
-                  <span>Acesso Rápido</span>
-                </button>
               </div>
 
               {/* Form Content */}

@@ -35,7 +35,7 @@ export function DriverAnimationIntro({ onClose }: DriverAnimationIntroProps) {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-black tracking-wider uppercase mb-4"
         >
           <Sparkles size={13} className="text-emerald-500 animate-spin" />
-          <span>Nova Funcionalidade</span>
+          <span>MeuUber</span>
         </motion.div>
 
         {/* Dynamic Car Motion Graphics */}

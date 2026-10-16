@@ -64,7 +64,9 @@ import {
   calculateMonthSummary, 
   getActiveExpensesForMonth,
   addMonths,
-  formatCurrency 
+  formatCurrency,
+  localDateString,
+  currentMonthYear
 } from './utils/financeCalculations';
 
 const STORAGE_KEYS = {
@@ -164,8 +166,8 @@ export default function App() {
     }
   };
 
-  // Current active month in view (default August 2026)
-  const [currentMonth, setCurrentMonth] = useState<string>('2026-08');
+  // Current active month in view (default: current month)
+  const [currentMonth, setCurrentMonth] = useState<string>(() => currentMonthYear());
   const [activeTab, setActiveTab] = useState<MainTabType>('dashboard');
 
   const MASTER_ACCOUNT_EMAIL = 'pedrootavio10k@gmail.com';
@@ -195,13 +197,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CARDS);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.map((c: CreditCard) => {
-          if (c.id === 'card-nubank') return { ...c, dueDay: 15, closingDay: 8 };
-          if (c.id === 'card-itau') return { ...c, dueDay: 8, closingDay: 1 };
-          if (c.id === 'card-mercadopago') return { ...c, dueDay: 17, closingDay: 10 };
-          return c;
-        });
+        return JSON.parse(saved);
       }
     } catch (e) {
       console.error('Error loading cards', e);
@@ -607,8 +603,9 @@ export default function App() {
       variant: 'info',
       icon: 'warning',
       onConfirm: () => {
+        const activeIds = new Set(getActiveExpensesForMonth(expenses, month).map(a => a.expense.id));
         setExpenses(prev => prev.map(exp => {
-          if (exp.personId === personId) {
+          if (exp.personId === personId && activeIds.has(exp.id)) {
             return {
               ...exp,
               paidByPerson: true,
@@ -731,7 +728,7 @@ export default function App() {
           id: `tx-${Date.now()}`,
           type: 'deposit',
           amount: boxData.currentBalance,
-          date: new Date().toISOString().split('T')[0],
+          date: localDateString(),
           notes: 'Saldo inicial',
         }] : [],
         updatedAt: new Date().toISOString(),
@@ -768,7 +765,7 @@ export default function App() {
           id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
           type: mode,
           amount,
-          date: new Date().toISOString().split('T')[0],
+          date: localDateString(),
           notes: notes || (mode === 'deposit' ? 'Aporte manual' : 'Resgate manual'),
         };
 
@@ -835,7 +832,7 @@ export default function App() {
             return {
               ...exp,
               paidByPerson: true,
-              paidDate: new Date().toISOString().split('T')[0],
+              paidDate: localDateString(),
             };
           }
           return exp;
@@ -943,7 +940,7 @@ export default function App() {
         return {
           ...inc,
           received: nextReceived,
-          receivedDate: nextReceived ? new Date().toISOString().split('T')[0] : undefined,
+          receivedDate: nextReceived ? localDateString() : undefined,
         };
       }
       return inc;
@@ -1317,7 +1314,7 @@ export default function App() {
               <div className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
                 <span>Gastô</span>
                 <span className="text-emerald-600 dark:text-emerald-400">?</span>
-                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 ml-1.5">v2.0</span>
+                
               </div>
               <span className="text-[10px] text-slate-400 dark:text-slate-500">
                 Controle financeiro inteligente de cartões & divisão de gastos
@@ -1326,7 +1323,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
-            <span>Privacidade & Dados Criptografados</span>
+            <span>Seus dados ficam protegidos por login</span>
             <span>•</span>
             <button 
               type="button" 
