@@ -394,6 +394,31 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isLegalTermsOpen, setIsLegalTermsOpen] = useState(false);
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
+
+  // LGPD: portabilidade — baixa uma cópia completa dos dados do usuário em JSON
+  const handleDownloadAllData = async () => {
+    if (!currentUser) return;
+    try {
+      const snap = await getDoc(doc(db, 'users', currentUser.uid));
+      const payload = {
+        exportadoEm: new Date().toISOString(),
+        usuario: { uid: currentUser.uid, email: currentUser.email ?? null },
+        dados: snap.exists() ? snap.data() : {},
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `gasto_meus_dados_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Erro ao exportar dados:', err);
+      alert('Não foi possível baixar seus dados agora. Verifique a conexão e tente novamente.');
+    }
+  };
   const isOnline = useNetworkStatus();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -4004,6 +4029,7 @@ export default function App() {
         freelanceEntries={freelanceEntries}
         freelanceExpenses={freelanceExpenses}
         subscriptions={subscriptions}
+        onDownloadAllData={handleDownloadAllData}
       />
 
       <LegalTermsModal
