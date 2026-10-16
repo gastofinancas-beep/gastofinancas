@@ -248,7 +248,7 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
     }
 
     if (isSignUp && !acceptedTerms) {
-      setErrorMsg('Para criar sua conta, é necessário aceitar os Termos de Uso e a Política de Privacidade.');
+      setErrorMsg('Para criar sua conta, é necessário ter 18 anos ou mais e aceitar os Termos de Uso e a Política de Privacidade.');
       return;
     }
 
@@ -948,7 +948,7 @@ export function AuthView({ onLocalLogin, isDarkMode }: AuthViewProps) {
                           Li e aceito os{' '}
                           <button type="button" onClick={() => setLegalOpen('terms')} className="font-bold text-emerald-600 dark:text-emerald-400 underline">Termos de Uso</button>
                           {' '}e a{' '}
-                          <button type="button" onClick={() => setLegalOpen('privacy')} className="font-bold text-emerald-600 dark:text-emerald-400 underline">Política de Privacidade</button>.
+                          <button type="button" onClick={() => setLegalOpen('privacy')} className="font-bold text-emerald-600 dark:text-emerald-400 underline">Política de Privacidade</button>, e declaro ter 18 anos ou mais.
                         </span>
                       </label>
                     )}

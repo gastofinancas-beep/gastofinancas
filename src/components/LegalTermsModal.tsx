@@ -126,6 +126,7 @@ export function LegalTermsModal({
                     <li><strong>Conta:</strong> e-mail ou telefone/usuário, nome e foto (quando você entra com Google ou Apple).</li>
                     <li><strong>Dados financeiros que você insere:</strong> despesas, rendas, cartões, caixinhas, carteira, assinaturas e registros de renda extra.</li>
                     <li><strong>Dados opcionais do perfil:</strong> CPF, data de nascimento, telefone/WhatsApp, chave Pix e profissão. Só preenchemos se você informar, e você pode apagar quando quiser.</li>
+                    <li><strong>Dados de terceiros que você cadastra:</strong> nome, telefone e chave Pix de pessoas com quem você divide gastos. Você deve cadastrá-los apenas para uso pessoal e organização das suas contas.</li>
                     <li><strong>Dados técnicos:</strong> identificadores de sessão e de notificação (push) do seu aparelho, quando você ativa os avisos.</li>
                   </ul>
                   <p>
@@ -224,6 +225,24 @@ export function LegalTermsModal({
                   </h3>
                   <p>
                     O usuário é responsável pela exatidão dos dados inseridos, bem como pela custódia e proteção de sua conta de acesso (e-mail ou conta Google).
+                  </p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    2.1 Idade mínima
+                  </h3>
+                  <p>
+                    O uso do aplicativo é destinado a pessoas com <strong>18 anos ou mais</strong>. Ao criar sua conta, você declara ter essa idade.
+                  </p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    2.2 Dados de outras pessoas
+                  </h3>
+                  <p>
+                    Ao cadastrar dados de terceiros (como nome, telefone ou chave Pix de quem divide gastos com você), você declara que o faz para uso pessoal e que tem motivo legítimo para isso. Esses dados não são usados pelo Gastô? para qualquer outra finalidade.
                   </p>
                 </section>
 
