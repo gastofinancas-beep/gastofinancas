@@ -1,31 +1,54 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  Wallet, CreditCard, Plus, Home, Users, Package, Repeat, Target, CheckCircle2, Hand, Sparkles,
+} from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
+import { Button } from './Button';
+import type { MainTabType } from '../types';
 
-type TourStep = 'intro' | 'tap-new' | 'form' | 'saved' | 'tap-add';
+type StepKind = 'info' | 'tap-new' | 'form' | 'saved';
+
+interface TourStepDef {
+  id: string;
+  kind: StepKind;
+  tab?: MainTabType;
+  target?: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  text: string;
+  button?: string;
+}
 
 interface GuidedTourProps {
   isOpen: boolean;
   onClose: () => void;
   hasAccount: boolean;
   isAccountModalOpen: boolean;
-  /** Leva o app para a aba Carteira. */
-  goToWallet: () => void;
+  goToTab: (tab: MainTabType) => void;
 }
 
 interface Rect { top: number; left: number; width: number; height: number }
 
 const PAD = 8;
 
+function findVisible(selector: string): HTMLElement | null {
+  const list = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
+  return list.find((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }) || null;
+}
+
 function useTargetRect(selector: string | null, active: boolean): Rect | null {
   const [rect, setRect] = useState<Rect | null>(null);
 
   useLayoutEffect(() => {
     if (!active || !selector) { setRect(null); return; }
-    let raf = 0;
+    let timer = 0;
     let scrolled = false;
     const tick = () => {
-      const el = document.querySelector(selector) as HTMLElement | null;
+      const el = findVisible(selector);
       if (el) {
         if (!scrolled) { scrolled = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
         const r = el.getBoundingClientRect();
@@ -38,95 +61,141 @@ function useTargetRect(selector: string | null, active: boolean): Rect | null {
       } else {
         setRect(null);
       }
-      raf = window.setTimeout(tick, 150);
+      timer = window.setTimeout(tick, 150);
     };
     tick();
-    return () => window.clearTimeout(raf);
+    return () => window.clearTimeout(timer);
   }, [selector, active]);
 
   return rect;
 }
 
-export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, goToWallet }: GuidedTourProps) {
-  const [step, setStep] = useState<TourStep>('intro');
-  const [startedWithAccount, setStartedWithAccount] = useState(false);
+function buildSteps(hasAccountAtStart: boolean): TourStepDef[] {
+  const start: TourStepDef[] = hasAccountAtStart
+    ? [{
+        id: 'saved', kind: 'saved', tab: 'carteira', target: '[data-tour="account-card"]', icon: Wallet,
+        title: 'Suas contas ficam aqui',
+        text: 'Cada cartão mostra o saldo de uma conta. Toque nele para ver o extrato, editar ou apagar.',
+        button: 'Próximo',
+      }]
+    : [
+        {
+          id: 'intro', kind: 'info', icon: Hand,
+          title: 'Vamos começar pela sua conta',
+          text: 'Tudo que você lança no Gastô sai de uma conta, que pode ser um banco ou dinheiro. Sem ela, os gastos não aparecem. Vamos criar uma agora, de teste, com R$ 1.000. Você pode editar ou apagar depois.',
+          button: 'Criar minha conta de teste',
+        },
+        {
+          id: 'tap-new', kind: 'tap-new', tab: 'carteira', target: '[data-tour="add-account"]', icon: Wallet,
+          title: 'Toque aqui',
+          text: 'Esse é o botão para cadastrar uma conta. Toque nele.',
+        },
+        {
+          id: 'form', kind: 'form', target: '[data-tour="save-account"]', icon: Wallet,
+          title: 'Já deixei tudo preenchido',
+          text: 'Preenchi uma "Conta Teste" com R$ 1.000. Se quiser, troque o nome, o banco ou o saldo. Quando estiver bom, toque em Salvar.',
+        },
+        {
+          id: 'saved', kind: 'saved', tab: 'carteira', target: '[data-tour="account-card"]', icon: CheckCircle2,
+          title: 'Sua conta foi criada',
+          text: 'Esse é o cartão dela, com saldo de R$ 1.000. Quando quiser, apague a conta de teste e cadastre a sua de verdade.',
+          button: 'Continuar',
+        },
+      ];
+
+  return [
+    ...start,
+    {
+      id: 'add', kind: 'info', target: '[data-tour="add-expense"]', icon: Plus,
+      title: 'Lançar um gasto ou uma entrada',
+      text: 'O botão + é o atalho principal. Use para registrar um gasto, uma entrada de dinheiro ou uma transferência entre contas.',
+      button: 'Próximo',
+    },
+    {
+      id: 'dashboard', kind: 'info', tab: 'dashboard', icon: Home,
+      title: 'Início: o resumo do seu mês',
+      text: 'Aqui você vê quanto entrou, quanto saiu e para onde foi o dinheiro, com gráficos por categoria e as próximas faturas.',
+      button: 'Próximo',
+    },
+    {
+      id: 'cartoes', kind: 'info', tab: 'cartoes', target: '[data-tour="nav-cartoes"]', icon: CreditCard,
+      title: 'Cartões e faturas',
+      text: 'Cadastre seus cartões de crédito com o dia de fechamento. O Gastô coloca cada compra na fatura certa e mostra o limite usado.',
+      button: 'Próximo',
+    },
+    {
+      id: 'pessoas', kind: 'info', tab: 'pessoas', icon: Users,
+      title: 'Dividir gastos com pessoas',
+      text: 'Emprestou o cartão ou comprou algo parcelado para alguém? Atribua a pessoa ao lançar a compra e veja quanto cada um te deve, com a chave Pix pronta para cobrar.',
+      button: 'Próximo',
+    },
+    {
+      id: 'caixinhas', kind: 'info', tab: 'investimentos', icon: Package,
+      title: 'Caixinhas e cofres',
+      text: 'Separe dinheiro para reserva, viagem ou um objetivo. Registre aportes e resgates e acompanhe o rendimento.',
+      button: 'Próximo',
+    },
+    {
+      id: 'assinaturas', kind: 'info', tab: 'assinaturas', icon: Repeat,
+      title: 'Assinaturas',
+      text: 'Netflix, Spotify, academia e outras cobranças fixas ficam todas aqui, com o valor total por mês.',
+      button: 'Próximo',
+    },
+    {
+      id: 'metas', kind: 'info', tab: 'metas', icon: Target,
+      title: 'Metas e limites',
+      text: 'Defina quanto quer gastar por categoria no mês e quanto quer juntar. O app avisa quando você chega perto do limite.',
+      button: 'Próximo',
+    },
+    {
+      id: 'fim', kind: 'info', tab: 'dashboard', icon: Sparkles,
+      title: 'Tudo pronto',
+      text: 'Agora é só lançar seus gastos. Para rever este tutorial, toque em "Guia & Tutorial" no rodapé do app.',
+      button: 'Começar a usar',
+    },
+  ];
+}
+
+export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, goToTab }: GuidedTourProps) {
+  const [startedWithAccount, setStartedWithAccount] = useState(hasAccount);
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
-      setStep('intro');
       setStartedWithAccount(hasAccount);
+      setIndex(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  const steps = useMemo(() => buildSteps(startedWithAccount), [startedWithAccount]);
+  const step = steps[Math.min(index, steps.length - 1)];
+
+  // Leva o app para a tela do passo.
+  useEffect(() => {
+    if (isOpen && step.tab) goToTab(step.tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, step.id]);
+
   // Avança sozinho conforme a pessoa usa o app de verdade.
   useEffect(() => {
     if (!isOpen) return;
-    if (step === 'tap-new' && isAccountModalOpen) setStep('form');
-    else if (step === 'form' && !isAccountModalOpen) setStep(hasAccount ? 'saved' : 'tap-new');
-  }, [isOpen, step, isAccountModalOpen, hasAccount]);
+    if (step.kind === 'tap-new' && isAccountModalOpen) setIndex((i) => i + 1);
+    else if (step.kind === 'form' && !isAccountModalOpen) setIndex((i) => (hasAccount ? i + 1 : i - 1));
+  }, [isOpen, step.kind, isAccountModalOpen, hasAccount]);
 
-  const selector =
-    step === 'tap-new' ? '[data-tour="add-account"]' :
-    step === 'form' ? '[data-tour="save-account"]' :
-    step === 'saved' ? '[data-tour="account-card"]' :
-    step === 'tap-add' ? '[data-tour="add-expense"]' : null;
-
-  const rect = useTargetRect(selector, isOpen && step !== 'intro');
+  const rect = useTargetRect(step.target || null, isOpen);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
+  const interactive = step.kind === 'tap-new' || step.kind === 'form';
   const canLeave = hasAccount;
-  const holeClickable = step === 'tap-new' || step === 'form';
   const vh = window.innerHeight;
   const vw = window.innerWidth;
+  const isFirst = index === 0;
+  const isLast = index >= steps.length - 1;
+  const Icon = step.icon;
 
-  const next = () => { triggerHaptic(8); };
-
-  let title = '';
-  let text = '';
-  let buttonLabel: string | null = null;
-  let onButton: (() => void) | null = null;
-  let counter = '';
-
-  if (step === 'intro') {
-    counter = '1 de 4';
-    if (startedWithAccount) {
-      title = 'Vamos revisar o básico';
-      text = 'Eu te mostro onde ficam suas contas e como lançar um gasto. É rapidinho.';
-      buttonLabel = 'Vamos lá';
-      onButton = () => { next(); goToWallet(); setStep('saved'); };
-    } else {
-      title = 'Vamos começar pela sua conta';
-      text = 'Tudo que você lança no Gastô sai de uma conta (banco ou dinheiro). Sem ela, os gastos não aparecem. Vamos criar uma agora, de teste, com R$ 1.000 de mentirinha. Você pode apagar ou editar depois.';
-      buttonLabel = 'Criar minha conta de teste';
-      onButton = () => { next(); goToWallet(); setStep('tap-new'); };
-    }
-  } else if (step === 'tap-new') {
-    counter = '2 de 4';
-    title = 'Toque aqui';
-    text = 'Esse é o botão para cadastrar uma conta. Toque nele.';
-  } else if (step === 'form') {
-    counter = '3 de 4';
-    title = 'Já deixei tudo preenchido';
-    text = 'Preenchi uma "Conta Teste" com R$ 1.000. Dá para trocar nome, banco e saldo se quiser. Quando estiver bom, toque em Salvar.';
-  } else if (step === 'saved') {
-    counter = '4 de 4';
-    title = startedWithAccount ? 'Aqui ficam suas contas' : 'Pronto, sua conta foi criada';
-    text = startedWithAccount
-      ? 'Cada cartão mostra o saldo de uma conta. Toque nele para ver o extrato ou editar.'
-      : 'Esse é o cartão dela, com o saldo de R$ 1.000. Toque nele quando quiser ver o extrato, editar ou apagar a conta de teste e cadastrar a sua de verdade.';
-    buttonLabel = 'Entendi';
-    onButton = () => { next(); setStep('tap-add'); };
-  } else {
-    counter = 'Último passo';
-    title = 'Para lançar um gasto';
-    text = 'Toque no botão + sempre que gastar ou receber algo. O valor entra na sua conta e aparece no saldo.';
-    buttonLabel = 'Terminar tutorial';
-    onButton = () => { next(); onClose(); };
-  }
-
-  const bubbleOnTop = rect ? rect.top + rect.height / 2 > vh * 0.55 : false;
   const hole = rect
     ? {
         top: Math.max(0, rect.top - PAD),
@@ -136,10 +205,20 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
       }
     : null;
 
-  const shade = 'fixed bg-slate-950/70';
+  const bubbleOnTop = rect ? rect.top + rect.height / 2 > vh * 0.5 : false;
+  const centered = isFirst && step.id === 'intro';
+  const shade = 'fixed bg-black/60';
+  const shadeLight = 'fixed bg-black/30';
+  const shadeCls = !hole && step.tab ? shadeLight : shade;
+
+  const advance = () => {
+    triggerHaptic(8);
+    if (isLast) onClose();
+    else setIndex((i) => i + 1);
+  };
 
   return createPortal(
-    <div id="guided-tour" className="fixed inset-0 z-[10000] font-sans" style={{ pointerEvents: 'none' }}>
+    <div id="guided-tour" className="fixed inset-0 z-[10000]" style={{ pointerEvents: 'none' }}>
       {hole ? (
         <>
           <div className={shade} style={{ pointerEvents: 'auto', top: 0, left: 0, right: 0, height: hole.top }} />
@@ -147,61 +226,80 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
           <div className={shade} style={{ pointerEvents: 'auto', top: hole.top, left: 0, width: hole.left, height: hole.height }} />
           <div className={shade} style={{ pointerEvents: 'auto', top: hole.top, left: hole.left + hole.width, right: 0, height: hole.height }} />
           <div
-            className="fixed rounded-2xl border-2 border-white"
+            className="fixed rounded-2xl border-2 border-emerald-400"
             style={{
               top: hole.top, left: hole.left, width: hole.width, height: hole.height,
-              pointerEvents: holeClickable ? 'none' : 'auto',
+              pointerEvents: interactive ? 'none' : 'auto',
               animation: 'tourPulse 1.6s ease-in-out infinite',
             }}
           />
         </>
       ) : (
-        <div className={shade} style={{ pointerEvents: 'auto', inset: 0 }} />
+        <div className={shadeCls} style={{ pointerEvents: 'auto', inset: 0 }} />
       )}
 
       <div
         className="fixed left-0 right-0 flex justify-center px-4"
         style={{
           pointerEvents: 'none',
-          ...(step === 'intro' || !rect
+          ...(centered || (!rect && !step.tab)
             ? { top: '50%', transform: 'translateY(-50%)' }
             : bubbleOnTop
               ? { top: 'max(1rem, env(safe-area-inset-top, 0px))' }
-              : { bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 1rem))' }),
+              : { bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))' }),
         }}
       >
         <div
-          className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#1C1C1E] text-slate-900 dark:text-white shadow-2xl p-5"
+          className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#1C1C1E] border border-slate-200/60 dark:border-white/[0.08] shadow-2xl p-5"
           style={{ pointerEvents: 'auto' }}
         >
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{counter}</span>
-            {canLeave && (
-              <button
-                type="button"
-                onClick={() => { triggerHaptic(8); onClose(); }}
-                className="text-xs font-semibold text-slate-500 dark:text-slate-400 py-1 px-2 -mr-2 cursor-pointer"
-              >
-                Fechar
-              </button>
-            )}
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Icon size={22} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Tutorial • {Math.min(index + 1, steps.length)} de {steps.length}
+                </span>
+                {canLeave && !isLast && (
+                  <button
+                    type="button"
+                    onClick={() => { triggerHaptic(8); onClose(); }}
+                    className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white py-1 px-2 -mr-2 cursor-pointer"
+                  >
+                    Pular
+                  </button>
+                )}
+              </div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-snug mt-0.5">{step.title}</h2>
+            </div>
           </div>
-          <h2 className="text-lg font-bold leading-snug">{title}</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">{text}</p>
-          {buttonLabel && onButton && (
-            <button
-              type="button"
-              id="btn-tour-next"
-              onClick={onButton}
-              className="mt-4 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm active:scale-[0.99] transition cursor-pointer"
-            >
-              {buttonLabel}
-            </button>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-3 leading-relaxed">{step.text}</p>
+
+          <div className="mt-3 h-1 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
+            <div
+              className="h-full bg-[#00C48C] rounded-full transition-all duration-300"
+              style={{ width: `${((Math.min(index, steps.length - 1) + 1) / steps.length) * 100}%` }}
+            />
+          </div>
+
+          {step.button && (
+            <div className="mt-4 flex items-center gap-2">
+              {canLeave && !isFirst && step.kind === 'info' && (
+                <Button type="button" variant="secondary" size="lg" className="shrink-0" onClick={() => { triggerHaptic(8); setIndex((i) => Math.max(0, i - 1)); }}>
+                  Voltar
+                </Button>
+              )}
+              <Button type="button" id="btn-tour-next" size="lg" fullWidth onClick={advance}>
+                {isLast ? 'Começar a usar' : step.button}
+              </Button>
+            </div>
           )}
         </div>
       </div>
 
-      <style>{`@keyframes tourPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.55)}50%{box-shadow:0 0 0 8px rgba(255,255,255,0)}}`}</style>
+      <style>{`@keyframes tourPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}50%{box-shadow:0 0 0 8px rgba(52,211,153,0)}}`}</style>
     </div>,
     document.body
   );

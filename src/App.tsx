@@ -4090,7 +4090,7 @@ export default function App() {
         onClose={() => setIsTutorialOpen(false)}
         hasAccount={walletAccounts.length > 0}
         isAccountModalOpen={isAddWalletAccountOpen}
-        goToWallet={() => setActiveTab('carteira')}
+        goToTab={(tab) => setActiveTab(tab)}
       />
 
       {/* User Profile Settings Modal */}

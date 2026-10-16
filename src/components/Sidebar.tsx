@@ -133,6 +133,7 @@ export function Sidebar({
               return (
                 <button
                   key={tab.id}
+                  data-tour={`nav-${tab.id}`}
                   onClick={() => onTabChange(tab.id as MainTabType)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                     isActive
