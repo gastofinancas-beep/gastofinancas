@@ -13,14 +13,13 @@ export interface DreamPlan {
   // Parcela do sonho (à vista = valor total)
   installmentValue: number;
   installmentsCount: number;
-  // Quantos meses até o sonho caber (0 = já cabe). null = nunca com a média atual.
+  // Primeiro mês (0 = este) em que o sonho cabe na sobra daquele mês. null = nunca com a média atual.
   monthsToAfford: number | null;
   bestMonthKey: string | null;
   // Parcelado: quanto da sobra do mês de início a parcela consome
   installmentShareOfSurplus: number | null;
   // Maior valor de parcelas/faturas já lançadas nos próximos meses que ainda pesa na sobra
   upcomingInstallmentsNow: number;
-  milestones: { percent: number; monthKey: string | null; monthsAhead: number | null }[];
   target: DreamTarget | null;
 }
 
@@ -32,10 +31,10 @@ export interface DreamTarget {
   surplusBefore: number;
   // Sobra mensal prevista depois (parcelado: pior mês durante as parcelas; à vista: igual à anterior)
   surplusAfter: number;
-  // À vista: quanto estará guardado até lá e quanto falta (ou sobra) para o valor total
-  saved: number;
-  shortfall: number;
-  requiredPerMonth: number;
+  // À vista: saldo do mês escolhido depois de pagar o sonho (negativo = mês no vermelho)
+  // e quantos meses de sobra seriam necessários para cobrir esse buraco
+  monthBalance: number;
+  monthsToRecover: number | null;
   // Cabe no mês escolhido?
   feasible: boolean;
 }
@@ -102,26 +101,18 @@ export function planDream(options: {
     surplusByMonth.push(averages.income - averages.baseExpense - inst);
   }
 
-  const monthsFor = (amount: number): number | null => {
-    if (amount <= 0) return 0;
-    let acc = 0;
-    for (let k = 1; k <= MAX_HORIZON; k++) {
-      acc += Math.max(0, surplusByMonth[k - 1]);
-      if (acc >= amount) return k;
-    }
-    return null;
-  };
-
-  const milestones = [25, 50, 75, 100].map((percent) => {
-    const m = monthsFor((cost * percent) / 100);
-    return { percent, monthsAhead: m, monthKey: m === null ? null : addMonths(currentMonth, m) };
-  });
-
   let monthsToAfford: number | null;
   let installmentShareOfSurplus: number | null = null;
 
   if (paymentMethod === 'a_vista') {
-    monthsToAfford = monthsFor(cost);
+    // À vista: o mês em que a sobra prevista cobre o valor inteiro sem fechar no vermelho
+    monthsToAfford = null;
+    for (let k = 0; k <= MAX_HORIZON; k++) {
+      if (cost <= 0 || surplusByMonth[k] >= cost) {
+        monthsToAfford = k;
+        break;
+      }
+    }
   } else {
     // Parcelado: a parcela precisa caber na sobra de todos os meses em que será paga.
     monthsToAfford = null;
@@ -143,12 +134,25 @@ export function planDream(options: {
     const [ty, tm] = targetMonth.split('-').map(Number);
     const k = Math.min(MAX_HORIZON, Math.max(0, (ty - cy) * 12 + (tm - cm)));
     const surplusBefore = surplusByMonth[k];
-    let saved = 0;
-    for (let j = 0; j < Math.max(k, 1); j++) saved += Math.max(0, surplusByMonth[j]);
     let surplusAfter = surplusBefore;
     let feasible: boolean;
+    let monthBalance = surplusBefore;
+    let monthsToRecover: number | null = 0;
     if (paymentMethod === 'a_vista') {
-      feasible = saved >= cost;
+      monthBalance = surplusBefore - cost;
+      surplusAfter = surplusBefore;
+      feasible = monthBalance >= 0;
+      if (!feasible) {
+        let deficit = -monthBalance;
+        monthsToRecover = null;
+        for (let j = 1; j <= MAX_HORIZON; j++) {
+          deficit -= Math.max(0, surplusByMonth[k + j] ?? surplusByMonth[surplusByMonth.length - 1]);
+          if (deficit <= 0) {
+            monthsToRecover = j;
+            break;
+          }
+        }
+      }
     } else {
       surplusAfter = Math.min(...surplusByMonth.slice(k, k + installmentsCount)) - installmentValue;
       feasible = surplusAfter > 0;
@@ -158,9 +162,8 @@ export function planDream(options: {
       monthsAhead: k,
       surplusBefore,
       surplusAfter,
-      saved,
-      shortfall: Math.max(0, cost - saved),
-      requiredPerMonth: cost / Math.max(k, 1),
+      monthBalance,
+      monthsToRecover,
       feasible,
     };
   }
@@ -174,6 +177,5 @@ export function planDream(options: {
     bestMonthKey: monthsToAfford === null ? null : addMonths(currentMonth, monthsToAfford),
     installmentShareOfSurplus,
     upcomingInstallmentsNow: sumExpenses(expenses, currentMonth, true),
-    milestones,
   };
 }

@@ -132,17 +132,25 @@ export function TravelSimulatorModal({
   if (ready && target) {
     const when = formatMonthDisplay(target.monthKey);
     if (paymentMethod === 'a_vista') {
-      verdict = target.feasible ? 'indicado' : 'nao';
-      headline = target.feasible ? `Indicado ir em ${when}` : `Não indicado ir em ${when}`;
+      const tightCash = target.monthBalance >= 0 && target.monthBalance < target.surplusBefore * 0.3;
+      verdict = target.monthBalance < 0 ? 'nao' : tightCash ? 'apertado' : 'indicado';
+      headline =
+        verdict === 'nao'
+          ? `Não indicado ir em ${when}`
+          : verdict === 'apertado'
+          ? `Dá para ir em ${when}, mas fica apertado`
+          : `Indicado ir em ${when}`;
       rows = [
-        { label: 'Guardado até lá', value: money(target.saved) },
-        { label: 'Valor do sonho', value: money(cost) },
-        target.feasible
-          ? { label: 'Sobra depois de pagar', value: money(target.saved - cost), strong: true }
-          : { label: 'Faltam', value: money(target.shortfall), strong: true, negative: true },
-        { label: 'Sobra mensal depois', value: money(target.surplusBefore) },
+        { label: 'Sobra prevista do mês', value: money(target.surplusBefore) },
+        { label: 'Pagamento do sonho', value: money(cost) },
+        { label: 'Saldo do mês depois', value: money(target.monthBalance), strong: true, negative: target.monthBalance < 0 },
       ];
-      if (!target.feasible) note = `Para chegar no valor até lá, seria preciso guardar ${money(target.requiredPerMonth)} por mês.`;
+      if (verdict === 'nao') {
+        note =
+          target.monthsToRecover === null
+            ? 'Você fecharia o mês no vermelho e, com a sua média, levaria mais de 5 anos para se recuperar.'
+            : `Você fecharia o mês no vermelho e levaria ${target.monthsToRecover} ${target.monthsToRecover === 1 ? 'mês' : 'meses'} de sobra para se recuperar.`;
+      }
     } else {
       const tight = target.surplusAfter > 0 && target.surplusAfter < target.surplusBefore * 0.3;
       verdict = target.surplusAfter <= 0 ? 'nao' : tight ? 'apertado' : 'indicado';
@@ -189,7 +197,7 @@ export function TravelSimulatorModal({
       color: dream.color,
       icon: existing?.icon || dream.id,
       notes: target
-        ? `Simulação: realizar em ${formatMonthDisplay(target.monthKey)}${target.feasible ? '' : ' (não fecha com a média atual)'}.`
+        ? `Simulação: realizar em ${formatMonthDisplay(target.monthKey)}${target.feasible ? '' : ' (não indicado com a média atual)'}.`
         : 'Simulação: ainda não cabe na média atual.',
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -385,7 +393,7 @@ export function TravelSimulatorModal({
                         {r.label}
                       </span>
                       <span
-                        className={`tabular-nums ${r.strong ? 'font-bold' : 'font-semibold'} ${
+                        className={`tabular-nums whitespace-nowrap ${r.strong ? 'font-bold' : 'font-semibold'} ${
                           r.negative ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'
                         }`}
                       >
@@ -413,7 +421,9 @@ export function TravelSimulatorModal({
                   verdict !== 'indicado' &&
                   !plan.bestMonthKey && (
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Com a sua média atual, esse sonho não cabe nos próximos 5 anos. Tente um valor menor.
+                      {paymentMethod === 'a_vista'
+                        ? 'Com a sua média, nenhum mês cobre esse valor de uma vez. Experimente parcelar ou um valor menor.'
+                        : 'Com a sua média, essa parcela não cabe em nenhum mês dos próximos 5 anos. Experimente mais parcelas ou um valor menor.'}
                     </p>
                   )
                 )}
@@ -462,25 +472,6 @@ export function TravelSimulatorModal({
               <p className="text-xs text-slate-400 -mt-2.5">
                 Faturas do cartão e parcelas já lançadas entram na conta mês a mês.
               </p>
-            )}
-
-            {/* Quando junta (somente à vista) */}
-            {paymentMethod === 'a_vista' && hasData && plan.milestones.some((m) => m.monthKey) && cost > 0 && (
-              <div className="space-y-2">
-                <span className={labelCls}>Quando você junta</span>
-                <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] divide-y divide-slate-100 dark:divide-white/[0.06] text-sm">
-                  {plan.milestones.map((m) => (
-                    <div key={m.percent} className="flex items-center justify-between px-4 py-2.5">
-                      <span className="text-slate-600 dark:text-slate-300">
-                        {m.percent}% <span className="text-slate-400">· {money((cost * m.percent) / 100)}</span>
-                      </span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {m.monthKey ? formatMonthDisplay(m.monthKey) : 'Mais de 5 anos'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
           </div>
 
