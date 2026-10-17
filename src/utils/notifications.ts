@@ -1,7 +1,8 @@
 import { CreditCard, ExpenseItem, InvestmentBox, CardBillPayment, UserProfile } from '../types';
 import { formatCurrency } from './financeCalculations';
 import { sendBillNotificationEmail } from './billEmailNotifications';
-import { currentMonthLocal, toLocalISODate, toLocalMonth } from './dateUtils';
+import { toLocalISODate, toLocalMonth } from './dateUtils';
+import { getCardBillTotal, getNextDue, isCardBillPaid } from './billReminders';
 
 export type NotificationPermissionStatus = NotificationPermission | 'unsupported';
 
@@ -181,7 +182,7 @@ export interface BillNotificationResult {
 export async function checkAndTriggerUpcomingBillNotifications(
   cards: CreditCard[],
   expenses: ExpenseItem[],
-  currentMonth: string = currentMonthLocal(),
+  _currentMonth: string = '', // mantido por compatibilidade: o lembrete usa sempre o mês real
   paidBills: CardBillPayment[] = [],
   options: { force?: boolean; profile?: UserProfile } = {}
 ): Promise<BillNotificationResult[]> {
@@ -193,29 +194,23 @@ export async function checkAndTriggerUpcomingBillNotifications(
   }
 
   const now = new Date();
-  const currentDay = now.getDate();
   const todayStr = toLocalISODate(now);
   const results: BillNotificationResult[] = [];
 
   for (const card of cards) {
-    // 1. Check if invoice for this card and month was already marked as paid
-    const isPaid = paidBills.some(
-      (b) => b.cardId === card.id && b.monthYear === currentMonth
-    );
-    if (isPaid) continue;
+    // Sempre a data real de hoje (não o mês que a pessoa está navegando na tela).
+    const { billMonth, daysDiff } = getNextDue(card.dueDay || 15, now, 3);
 
-    // 2. Sum up expenses for this card in the active month
-    const cardExpenses = expenses.filter((e) => {
-      if (e.cardId !== card.id) return false;
-      return e.startMonthYear === currentMonth || e.date?.startsWith(currentMonth);
-    });
-    const billTotal = cardExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    // 1. Fatura já paga? Não avisa.
+    if (isCardBillPaid(card, paidBills, billMonth)) continue;
 
-    // Skip if bill has zero balance
+    // 2. Total da fatura (únicas + parceladas + fixas)
+    const billTotal = getCardBillTotal(card, expenses, billMonth);
+
+    // Fatura zerada: nada a avisar
     if (billTotal <= 0) continue;
 
     const dueDay = card.dueDay || 15;
-    const daysDiff = dueDay - currentDay;
 
     let status: 'today' | 'tomorrow' | 'soon' | 'overdue' | null = null;
 

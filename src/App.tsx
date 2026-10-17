@@ -3782,6 +3782,7 @@ function computeDataSignature(data: any): string {
               cards={cards}
               subscriptions={subscriptions}
               expenses={expenses}
+              paidBills={paidBills}
               isSyncing={isSyncing}
               lastSyncedAt={lastSyncedAt}
               isOnline={isOnline}

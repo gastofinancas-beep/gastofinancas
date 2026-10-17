@@ -11,9 +11,9 @@ import {
   ChevronRight,
   Calendar
 } from 'lucide-react';
-import { CreditCard, SubscriptionItem, ExpenseItem, MainTabType } from '../types';
+import { CreditCard, SubscriptionItem, ExpenseItem, MainTabType, CardBillPayment } from '../types';
 import { formatCurrency } from '../utils/financeCalculations';
-import { currentMonthLocal } from '../utils/dateUtils';
+import { getCardBillTotal, getNextDue, isCardBillPaid } from '../utils/billReminders';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -21,6 +21,8 @@ interface NotificationsModalProps {
   cards?: CreditCard[];
   subscriptions?: SubscriptionItem[];
   expenses?: ExpenseItem[];
+  paidBills?: CardBillPayment[];
+  /** Mantido por compatibilidade: os lembretes usam sempre o mês real, não o mês que a pessoa está vendo. */
   currentMonth?: string;
   onTabChange?: (tab: MainTabType) => void;
   onOpenProfile?: () => void;
@@ -34,82 +36,68 @@ export function NotificationsModal({
   cards = [],
   subscriptions = [],
   expenses = [],
-  currentMonth = currentMonthLocal(),
+  paidBills = [],
   onTabChange,
   onOpenProfile,
 }: NotificationsModalProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('todos');
 
   const today = new Date();
-  const currentDay = today.getDate();
+
+  type ReminderStatus = 'paid' | 'overdue' | 'today' | 'upcoming' | 'later';
+  const statusFor = (daysDiff: number): ReminderStatus => {
+    if (daysDiff < 0) return 'overdue';
+    if (daysDiff === 0) return 'today';
+    if (daysDiff <= 7) return 'upcoming';
+    return 'later';
+  };
 
   // Process card bills
   const cardItems = useMemo(() => {
     return cards.map(card => {
-      const cardExpenses = expenses.filter(e => {
-        if (e.cardId !== card.id) return false;
-        return e.startMonthYear === currentMonth || e.date?.startsWith(currentMonth);
-      });
-      const billTotal = cardExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-
-      const dueDay = card.dueDay;
-      const daysDiff = dueDay - currentDay;
-
-      let status: 'overdue' | 'today' | 'upcoming' | 'later' = 'later';
-      if (daysDiff < 0) {
-        status = daysDiff >= -4 ? 'overdue' : 'later';
-      } else if (daysDiff === 0) {
-        status = 'today';
-      } else if (daysDiff <= 7) {
-        status = 'upcoming';
-      }
+      const dueDay = card.dueDay || 15;
+      const { billMonth, daysDiff } = getNextDue(dueDay, today);
+      const paid = isCardBillPaid(card, paidBills, billMonth);
+      const status: ReminderStatus = paid ? 'paid' : statusFor(daysDiff);
 
       return {
         id: `card-${card.id}`,
         type: 'card' as const,
         name: card.name,
-        subtitle: `Fatura • Vence dia ${card.dueDay}`,
+        subtitle: `Fatura • Vence dia ${dueDay}`,
         dueDay,
         closingDay: card.closingDay,
-        amount: billTotal,
+        amount: getCardBillTotal(card, expenses, billMonth),
         daysDiff,
         status,
         color: card.color || '#10b981',
       };
     });
-  }, [cards, expenses, currentMonth, currentDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, expenses, paidBills, today.toDateString()]);
 
   // Process subscriptions
   const subscriptionItems = useMemo(() => {
     return subscriptions
       .filter(sub => sub.active)
       .map(sub => {
-        const billingDay = sub.billingDay;
-        const daysDiff = billingDay - currentDay;
-
-        let status: 'overdue' | 'today' | 'upcoming' | 'later' = 'later';
-        if (daysDiff < 0) {
-          status = daysDiff >= -3 ? 'overdue' : 'later';
-        } else if (daysDiff === 0) {
-          status = 'today';
-        } else if (daysDiff <= 7) {
-          status = 'upcoming';
-        }
+        const { daysDiff } = getNextDue(sub.billingDay, today, 3);
 
         return {
           id: `sub-${sub.id}`,
           type: 'subscription' as const,
           name: sub.name,
           subtitle: `Assinatura • Dia ${sub.billingDay}`,
-          dueDay: billingDay,
+          dueDay: sub.billingDay,
           closingDay: undefined,
           amount: sub.amount,
           daysDiff,
-          status,
+          status: statusFor(daysDiff),
           color: sub.color || '#6366f1',
         };
       });
-  }, [subscriptions, currentDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscriptions, today.toDateString()]);
 
   // Combined & sorted
   const allItems = useMemo(() => {
@@ -124,6 +112,7 @@ export function NotificationsModal({
 
     // Sort: Overdue first, then Today, then Upcoming, then Later
     const weight = (s: string, d: number) => {
+      if (s === 'paid') return 1000;
       if (s === 'overdue') return -100 + d;
       if (s === 'today') return -50;
       if (s === 'upcoming') return d;
@@ -261,6 +250,7 @@ export function NotificationsModal({
               const isOverdue = item.status === 'overdue';
               const isToday = item.status === 'today';
               const isUpcoming = item.status === 'upcoming';
+              const isPaid = item.status === 'paid';
 
               return (
                 <div
@@ -298,7 +288,9 @@ export function NotificationsModal({
                         {formatCurrency(item.amount)}
                       </p>
                       <span className={`inline-block text-xs font-normal text-slate-500 ${
-                        isOverdue 
+                        isPaid
+                          ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                          : isOverdue 
                           ? 'text-rose-600 dark:text-rose-400 font-semibold' 
                           : isToday 
                           ? 'text-amber-600 dark:text-amber-400 font-semibold' 
@@ -306,12 +298,14 @@ export function NotificationsModal({
                           ? 'text-emerald-600 dark:text-emerald-400' 
                           : 'text-slate-500 dark:text-slate-400'
                       }`}>
-                        {isOverdue 
+                        {isPaid
+                          ? 'Fatura paga'
+                          : isOverdue 
                           ? `Venceu há ${Math.abs(item.daysDiff)}d` 
                           : isToday 
                           ? 'Vence hoje' 
                           : isUpcoming 
-                          ? `Em ${item.daysDiff} dias` 
+                          ? (item.daysDiff === 1 ? 'Vence amanhã' : `Em ${item.daysDiff} dias`)
                           : `Dia ${item.dueDay}`}
                       </span>
                     </div>
