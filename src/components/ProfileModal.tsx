@@ -242,6 +242,7 @@ export function ProfileModal({
   const [activeSubTab, setActiveSubTab] = useState<'geral' | 'notificacoes' | 'prefs'>('geral');
   const [showPhotoPanel, setShowPhotoPanel] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
+  const [initialSnapshot, setInitialSnapshot] = useState('');
 
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(() => Boolean(auth.currentUser?.emailVerified));
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -338,6 +339,11 @@ export function ProfileModal({
       setAppLockPin(profile.appLockPin || '');
       setUseBiometrics(profile.useBiometrics || false);
       setBudgets(profile.budgets || {});
+      setInitialSnapshot(JSON.stringify([
+        initialName, initialNickname, initialEmail, profile.recoveryEmail || '', profile.phone || gPhone || '',
+        profile.pixKey || '', profile.pixKeyType || 'email', initialPhoto, profile.cpf || '', profile.birthDate || '',
+        profile.occupation || '', profile.bio || '', profile.budgets || {}, true,
+      ]));
 
       setSavedSuccess(false);
       setShowUrlInput(false);
@@ -702,6 +708,10 @@ export function ProfileModal({
 
   const hasGoogleAccount = Boolean(currentUser?.photoURL || currentUser?.email?.includes('@gmail.com') || currentUser?.providerData?.some((p: any) => p.providerId === 'google.com'));
 
+  const isDirty = initialSnapshot !== '' && initialSnapshot !== JSON.stringify([
+    name, nickname, email, recoveryEmail, phone, pixKey, pixKeyType, photoURL, cpf, birthDate, occupation, bio, budgets, syncWithPersonMe,
+  ]);
+  const showSaveBar = isDirty || savedSuccess;
   const accountInitial = (nickname || name || 'U').charAt(0).toUpperCase();
   const photoSourceLabel =
     photoSource === 'google' ? 'Foto da conta Google'
@@ -737,7 +747,7 @@ export function ProfileModal({
         </div>
       </header>
 
-      <main className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 pt-4 pb-36 space-y-5">
+      <main className="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 pt-4 space-y-5" style={{ paddingBottom: showSaveBar ? '9rem' : '3rem' }}>
         <div className="p-1 rounded-xl bg-slate-200/60 dark:bg-white/[0.06] grid grid-cols-3 gap-1">
           {tabs.map(t => (
             <button
@@ -761,11 +771,16 @@ export function ProfileModal({
           {activeSubTab === 'geral' && (
             <div className="space-y-6 animate-in fade-in duration-150">
               <div className="flex flex-col items-center text-center pt-1">
-                <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-200 dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 flex items-center justify-center font-bold text-3xl">
-                  {photoURL ? (
-                    <img src={photoURL} alt={nickname || name || 'Foto'} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                  ) : accountInitial}
-                </div>
+                <button type="button" onClick={() => setShowPhotoPanel(v => !v)} className="relative cursor-pointer" aria-label="Alterar foto">
+                  <span className="w-20 h-20 rounded-full overflow-hidden bg-slate-200 dark:bg-[#2C2C2E] text-slate-700 dark:text-slate-200 flex items-center justify-center font-bold text-3xl">
+                    {photoURL ? (
+                      <img src={photoURL} alt={nickname || name || 'Foto'} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    ) : accountInitial}
+                  </span>
+                  <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-500 text-white ring-2 ring-slate-50 dark:ring-[#09090B] flex items-center justify-center">
+                    <Camera size={14} />
+                  </span>
+                </button>
                 <p className="mt-3 font-bold text-lg tracking-tight">{name || nickname || 'Seu nome'}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{email || userEmail || 'Sem e-mail informado'}</p>
                 <button
@@ -1156,6 +1171,7 @@ export function ProfileModal({
         </form>
       </main>
 
+      {showSaveBar && (
       <footer
         style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
         className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-md border-t border-slate-200/70 dark:border-white/[0.08] px-4 sm:px-6 pt-3.5"
@@ -1175,6 +1191,7 @@ export function ProfileModal({
           </Button>
         </div>
       </footer>
+      )}
     </div>,
     document.body
   );
