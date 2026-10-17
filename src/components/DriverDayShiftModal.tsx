@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -132,6 +132,25 @@ export function DriverDayShiftModal({
   const defaultAcc = accounts.find(a => a.id === config.defaultAccountId) || accounts[0];
   const [accountId, setAccountId] = useState<string>(defaultAcc?.id || '');
 
+  // O modal fica montado: ao abrir de novo, começa limpo (evita lançar o mesmo dia em duplicidade).
+  useEffect(() => {
+    if (!isOpen) return;
+    const today = todayLocalISO();
+    setDate(today);
+    setHoursWorked('');
+    setKmDriven('');
+    setShowAdvanced(false);
+    setPayoutOption('today');
+    setCustomPayoutDate(today);
+    setCustomizePerApp(false);
+    setPerAppPayoutDates({});
+    setPlatformEarnings(Object.fromEntries(activeApps.map(a => [a, ''])));
+    setPlatformTripsCount({});
+    setExpenseAmounts({ combustivel: '', alimentacao: '', lavagem: '', manutencao: '', pedagio: '', outros: '' });
+    setAccountId((accounts.find(a => a.id === config.defaultAccountId) || accounts[0])?.id || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handlePlatformChange = (app: string, value: string) => {
@@ -195,7 +214,7 @@ export function DriverDayShiftModal({
           payoutDate: finalPayoutDate,
           time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           durationMinutes: hours > 0 ? Math.round((hours * 60) / Math.max(1, Object.keys(platformEarnings).filter(k => parseVal(platformEarnings[k]) > 0).length)) : undefined,
-          distanceKm: km > 0 ? Math.round(km / Math.max(1, Object.keys(platformEarnings).filter(k => parseVal(platformEarnings[k]) > 0).length)) : undefined,
+          distanceKm: km > 0 ? Math.round((km / Math.max(1, Object.keys(platformEarnings).filter(k => parseVal(platformEarnings[k]) > 0).length)) * 10) / 10 : undefined,
           tripsCount,
           accountId: accountId || undefined,
           notes: `Fechamento do dia (${appConfig?.name || appKey})`,

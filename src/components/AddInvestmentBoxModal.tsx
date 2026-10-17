@@ -77,7 +77,10 @@ export function AddInvestmentBoxModal({
       folderId: folderId || 'default',
       currentBalance,
       targetAmount: targetAmount > 0 ? targetAmount : undefined,
-      monthlyYieldPercent: parseFloat(monthlyYieldPercent.replace(',', '.')) || 1.0,
+      monthlyYieldPercent: (() => {
+        const v = parseFloat(monthlyYieldPercent.replace(',', '.'));
+        return Number.isFinite(v) && v >= 0 ? v : 1.0;
+      })(),
       yieldDescription: yieldDescription.trim() || undefined,
       institution: institution.trim() || 'Nubank',
       notes: notes.trim() || undefined,

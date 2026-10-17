@@ -89,15 +89,20 @@ export function AddDriverTripModal({
     if (val <= 0) return;
 
     triggerHaptic(12);
+    // Ao editar sem mexer no valor, preserva bruto e taxa originais (ex.: fechamento do dia sem taxa).
+    const keepOriginalFee = Boolean(editingTrip) && Math.abs(val - (editingTrip?.netAmount || 0)) < 0.005;
     const defaultFee = APP_CONFIGS[app]?.defaultFee ?? 20;
-    const gross = defaultFee > 0 && defaultFee < 100 ? val / (1 - defaultFee / 100) : val;
-    const feeAmount = gross - val;
+    const gross = keepOriginalFee && editingTrip
+      ? editingTrip.grossAmount
+      : defaultFee > 0 && defaultFee < 100 ? val / (1 - defaultFee / 100) : val;
+    const feePercent = keepOriginalFee && editingTrip ? editingTrip.feePercent : defaultFee;
+    const feeAmount = (keepOriginalFee && editingTrip ? editingTrip.feeAmount : undefined) ?? gross - val;
 
     onSaveTrip({
       app,
-      type: 'corrida',
+      type: editingTrip?.type ?? 'corrida',
       grossAmount: Math.round(gross * 100) / 100,
-      feePercent: defaultFee,
+      feePercent,
       feeAmount: Math.round(feeAmount * 100) / 100,
       netAmount: Math.round(val * 100) / 100,
       date,

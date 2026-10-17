@@ -1839,7 +1839,7 @@ function computeDataSignature(data: any): string {
         title: boxData.title || 'Nova Caixinha',
         currentBalance: boxData.currentBalance || 0,
         targetAmount: boxData.targetAmount,
-        monthlyYieldPercent: boxData.monthlyYieldPercent || 1.0,
+        monthlyYieldPercent: boxData.monthlyYieldPercent ?? 1.0,
         yieldDescription: boxData.yieldDescription || '100% CDI',
         institution: boxData.institution || 'Nubank',
         color: boxData.color || '#10b981',
@@ -2253,13 +2253,18 @@ function computeDataSignature(data: any): string {
       if (oldTrip) {
         const oldNet = oldTrip.netAmount || oldTrip.grossAmount;
         const oldAccId = oldTrip.accountId || targetAccountId;
-        // Revert old account balance
-        if (oldAccId) {
-          setWalletAccounts(prev => prev.map(a => a.id === oldAccId ? { ...a, currentBalance: a.currentBalance - oldNet } : a));
-        }
-        // Apply new account balance
-        if (targetAccountId) {
-          setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance + net } : a));
+        // Repasse futuro nunca entrou no saldo, então não há o que estornar nem aplicar.
+        const oldTx = walletTransactions.find(tx => tx.id === oldTrip.walletTxId);
+        const isPendingPayout = oldTx?.status === 'futuro';
+        if (!isPendingPayout) {
+          // Revert old account balance
+          if (oldAccId) {
+            setWalletAccounts(prev => prev.map(a => a.id === oldAccId ? { ...a, currentBalance: a.currentBalance - oldNet } : a));
+          }
+          // Apply new account balance
+          if (targetAccountId) {
+            setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance + net } : a));
+          }
         }
 
         // Update linked wallet transaction
@@ -2281,7 +2286,7 @@ function computeDataSignature(data: any): string {
         }
       }
 
-      setDriverTrips(prev => prev.map(t => t.id === editId ? { ...tripData, id: editId, accountId: targetAccountId, walletTxId: t.walletTxId } : t));
+      setDriverTrips(prev => prev.map(t => t.id === editId ? { ...t, ...tripData, id: editId, accountId: targetAccountId, walletTxId: t.walletTxId } : t));
     } else {
       const newTripId = `trip-${crypto.randomUUID()}`;
       const newTxId = `wtx-dtrip-${crypto.randomUUID()}`;
@@ -2712,6 +2717,7 @@ function computeDataSignature(data: any): string {
         const recalculatedAccounts = accounts.map(acc => {
           const accTxs = allTransactions.filter(tx => tx.accountId === acc.id);
           const balanceFromTxs = accTxs.reduce((sum, tx) => {
+            if (tx.status === 'futuro') return sum; // repasse ainda não caiu na conta
             if (['pix_in', 'deposito', 'transferencia_entrada'].includes(tx.type)) return sum + tx.amount;
             if (['pix_out', 'debito', 'dinheiro_gasto', 'transferencia_saida'].includes(tx.type)) return sum - tx.amount;
             if (tx.type === 'ajuste') return sum + tx.amount;

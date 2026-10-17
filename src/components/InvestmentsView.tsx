@@ -62,7 +62,14 @@ export function InvestmentsView({
     }, 0);
   }, [boxes]);
 
-  const estimatedYearlyYield = useMemo(() => estimatedMonthlyYield * 12, [estimatedMonthlyYield]);
+  // Projeção anual com juros compostos (cada caixinha rende sobre o saldo + rendimento do mês anterior).
+  const estimatedYearlyYield = useMemo(() => {
+    return boxes.reduce((acc, curr) => {
+      const balance = curr.currentBalance || 0;
+      const rate = (curr.monthlyYieldPercent || 0) / 100;
+      return acc + balance * (Math.pow(1 + rate, 12) - 1);
+    }, 0);
+  }, [boxes]);
 
   // Overall Goal Progress
   const goalStats = useMemo(() => {

@@ -102,19 +102,20 @@ export function DriverView({
   };
 
   // Helper dates
-  const todayStr = useMemo(() => todayLocalISO(), []);
+  const todayStr = todayLocalISO();
   
+  // Semana = hoje e os 6 dias anteriores (7 dias no total).
   const sevenDaysAgoStr = useMemo(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 7);
+    d.setDate(d.getDate() - 6);
     return toLocalISODate(d);
-  }, []);
+  }, [todayStr]);
 
   // Filtered trips by period
   const filteredTrips = useMemo(() => {
     return trips.filter(trip => {
       if (period === 'hoje') return trip.date === todayStr;
-      if (period === 'semana') return trip.date >= sevenDaysAgoStr;
+      if (period === 'semana') return trip.date >= sevenDaysAgoStr && trip.date <= todayStr;
       if (period === 'mes') return trip.date.startsWith(currentMonth);
       return true;
     }).sort((a, b) => {
@@ -128,7 +129,7 @@ export function DriverView({
   const filteredExpenses = useMemo(() => {
     return expenses.filter(exp => {
       if (period === 'hoje') return exp.date === todayStr;
-      if (period === 'semana') return exp.date >= sevenDaysAgoStr;
+      if (period === 'semana') return exp.date >= sevenDaysAgoStr && exp.date <= todayStr;
       if (period === 'mes') return exp.date.startsWith(currentMonth);
       return true;
     }).sort((a, b) => parseLocalISO(b.date).getTime() - parseLocalISO(a.date).getTime());
@@ -142,7 +143,7 @@ export function DriverView({
     const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
     const realProfit = totalNet - totalExpenses;
 
-    const tripsCount = filteredTrips.length;
+    const tripsCount = filteredTrips.reduce((acc, t) => acc + (t.tripsCount || 1), 0);
     const totalKm = filteredTrips.reduce((acc, t) => acc + (t.distanceKm || 0), 0);
     const totalMinutes = filteredTrips.reduce((acc, t) => acc + (t.durationMinutes || 0), 0);
 
@@ -219,7 +220,7 @@ export function DriverView({
       const grossAmount = dayTrips.reduce((acc, t) => acc + (t.grossAmount || 0), 0);
       const expenseAmount = dayExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
       const dayProfit = netAmount - expenseAmount;
-      const tripsCount = dayTrips.length;
+      const tripsCount = dayTrips.reduce((acc, t) => acc + (t.tripsCount || 1), 0);
       const km = dayTrips.reduce((acc, t) => acc + (t.distanceKm || 0), 0);
 
       accumulatedNet += netAmount;
