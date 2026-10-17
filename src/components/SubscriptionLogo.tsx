@@ -60,10 +60,11 @@ export function SubscriptionLogo({
     );
   }
 
-  // 2. Ícone oficial do site da marca (quando não há logo embutido)
+  // 2. Logo da marca pela API de logos do Hunter (sem chave), com ícone do site como reserva
   const domain = findBrandDomain(normalizedKey) || (nameKey ? findBrandDomain(nameKey) : null);
   const iconSources = domain
     ? [
+        `https://logos.hunter.io/${domain}`,
         `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
         `https://icons.duckduckgo.com/ip3/${domain}.ico`,
       ]
