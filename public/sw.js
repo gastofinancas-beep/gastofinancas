@@ -171,7 +171,7 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const title = payload.title || 'Lembrete de Fatura • Gastô';
+  const title = payload.title || 'Gastô';
   const options = {
     body: payload.body || 'Você tem uma fatura de cartão com vencimento próximo.',
     icon: payload.icon || '/pwa-192x192.png',
@@ -185,7 +185,7 @@ self.addEventListener('push', (event) => {
       ...(payload.data || {})
     },
     actions: payload.actions || [
-      { action: 'view_cards', title: '💳 Ver Fatura' },
+      { action: 'view_cards', title: 'Ver faturas' },
       { action: 'close', title: 'Dispensar' }
     ]
   };
@@ -239,7 +239,7 @@ self.addEventListener('message', (event) => {
         vibrate: [200, 100, 200],
         ...options,
         actions: options?.actions || [
-          { action: 'view_cards', title: '💳 Ver Fatura' },
+          { action: 'view_cards', title: 'Ver faturas' },
           { action: 'close', title: 'Dispensar' }
         ]
       });

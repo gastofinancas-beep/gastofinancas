@@ -127,6 +127,7 @@ import {
 } from './utils/financeCalculations';
 import {
   checkAndTriggerUpcomingBillNotifications,
+  enableBackgroundPush,
   checkAndTriggerInvestmentYieldNotifications
 } from './utils/notifications';
 import { todayLocalISO } from './utils/dateUtils';
@@ -546,6 +547,8 @@ export default function App() {
       const tabParam = urlParams.get('tab');
       if (tabParam === 'cards' || tabParam === 'cartoes') {
         setActiveTab('cartoes');
+      } else if (tabParam === 'subscriptions' || tabParam === 'assinaturas') {
+        setActiveTab('assinaturas');
       } else if (tabParam === 'investments' || tabParam === 'investimentos') {
         setActiveTab('investimentos');
       }
@@ -1387,6 +1390,9 @@ function computeDataSignature(data: any): string {
     const isEmailEnabled = Boolean(userProfile.notifyCardBillsEmail && (userProfile.recoveryEmail || userProfile.email));
     if (!isPushGranted && !isEmailEnabled) return;
 
+    // Garante que este aparelho esteja inscrito para receber avisos com o app fechado.
+    if (isPushGranted) enableBackgroundPush().catch(() => {});
+
     const runNotificationChecks = async () => {
       try {
         if (userProfile.notifyCardBillsDue !== false && cards.length > 0) {
@@ -1436,6 +1442,8 @@ function computeDataSignature(data: any): string {
         const notifData = event.data.data || {};
         if (notifData.type === 'card_bill') {
           setActiveTab('cartoes');
+        } else if (notifData.type === 'subscription') {
+          setActiveTab('assinaturas');
         } else if (notifData.type === 'investment_yield') {
           setActiveTab('investimentos');
         }

@@ -1,4 +1,5 @@
 import { CreditCard, ExpenseItem, InvestmentBox, CardBillPayment, UserProfile } from '../types';
+import { auth } from '../lib/firebase';
 import { formatCurrency } from './financeCalculations';
 import { sendBillNotificationEmail } from './billEmailNotifications';
 import { toLocalISODate, toLocalMonth } from './dateUtils';
@@ -84,6 +85,45 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
   }
 }
 
+async function pushApi(method: 'POST' | 'DELETE', subscription: PushSubscription | null, endpoint?: string): Promise<boolean> {
+  try {
+    const user = auth.currentUser;
+    if (!user) return false;
+    const token = await user.getIdToken();
+    const res = await fetch('/.netlify/functions/push-register', {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ subscription: subscription ? subscription.toJSON() : undefined, endpoint }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Falha ao falar com o servidor de avisos:', err);
+    return false;
+  }
+}
+
+/**
+ * Inscreve este aparelho para receber avisos mesmo com o app fechado.
+ * Precisa de VITE_VAPID_PUBLIC_KEY; sem ela os avisos continuam só quando o app está aberto.
+ */
+export async function enableBackgroundPush(): Promise<boolean> {
+  if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) return false;
+  const subscription = await subscribeToPushNotifications();
+  if (!subscription) return false;
+  return pushApi('POST', subscription);
+}
+
+export async function disableBackgroundPush(): Promise<void> {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    await pushApi('DELETE', null, subscription?.endpoint);
+    await subscription?.unsubscribe();
+  } catch (err) {
+    console.warn('Falha ao desligar avisos em segundo plano:', err);
+  }
+}
+
 export type ExtendedNotificationOptions = NotificationOptions & {
   url?: string;
   renotify?: boolean;
@@ -121,7 +161,7 @@ export async function sendPushNotification(
     ...defaultOptions,
     ...options,
     actions: options.actions || [
-      { action: 'view_cards', title: '💳 Ver Fatura' },
+      { action: 'view_cards', title: 'Ver faturas' },
       { action: 'close', title: 'Dispensar' }
     ],
   };
@@ -248,17 +288,17 @@ export async function checkAndTriggerUpcomingBillNotifications(
     let body = '';
 
     if (status === 'today') {
-      title = `⚠️ Fatura do ${card.name} vence HOJE!`;
-      body = `Valor total: ${formatCurrency(billTotal)}. Pague hoje até o horário limite para evitar juros.`;
+      title = `Fatura ${card.name} vence hoje`;
+      body = `${formatCurrency(billTotal)} para pagar hoje e evitar juros.`;
     } else if (status === 'tomorrow') {
-      title = `⏰ Fatura do ${card.name} vence amanhã!`;
-      body = `Valor total: ${formatCurrency(billTotal)} (Vencimento dia ${dueDay}).`;
+      title = `Fatura ${card.name} vence amanhã`;
+      body = `${formatCurrency(billTotal)}, com vencimento no dia ${dueDay}.`;
     } else if (status === 'soon') {
-      title = `📅 Lembrete: Fatura do ${card.name} vence em ${daysDiff} dias`;
-      body = `Valor total: ${formatCurrency(billTotal)} (Vencimento dia ${dueDay}). Fique atento ao saldo!`;
+      title = `Fatura ${card.name} vence em ${daysDiff} dias`;
+      body = `${formatCurrency(billTotal)}, com vencimento no dia ${dueDay}.`;
     } else if (status === 'overdue') {
-      title = `🔴 Fatura do ${card.name} vencida há ${Math.abs(daysDiff)} dia(s)`;
-      body = `Valor em aberto: ${formatCurrency(billTotal)}. Regularize para evitar encargos bancários.`;
+      title = `Fatura ${card.name} em atraso`;
+      body = `${formatCurrency(billTotal)} em aberto desde o dia ${dueDay}. Vale regularizar para evitar encargos.`;
     }
 
     let sent = false;
@@ -382,8 +422,8 @@ export async function checkAndTriggerInvestmentYieldNotifications(
     ? ` Destaque para "${topBox.title}" rendendo aprox. ${topBox.monthlyYieldPercent}% a.m.`
     : '';
 
-  const title = `📈 Caixinhas: rendimento estimado de ${formatCurrency(totalMonthlyYield)}!`;
-  const body = `Seu dinheiro está trabalhando para você nas suas caixinhas.${topHighlight}`;
+  const title = `Suas caixinhas rendem cerca de ${formatCurrency(totalMonthlyYield)} no mês`;
+  const body = `Estimativa com base nos rendimentos cadastrados.${topHighlight}`;
 
   const sent = await sendPushNotification(title, {
     body,
