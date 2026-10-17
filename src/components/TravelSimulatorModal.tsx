@@ -114,39 +114,42 @@ export function TravelSimulatorModal({
     tone = 'warn';
     headline = 'Ainda sem dados para calcular';
     detail = 'Cadastre suas receitas e gastos para o app descobrir a sua média.';
-  } else if (averages.surplus <= 0) {
+  } else if (plan.monthsToAfford === null && averages.surplus <= 0) {
     tone = 'bad';
     headline = 'Hoje não sobra dinheiro no mês';
-    detail = `Você gasta em média ${money(Math.abs(averages.surplus))} a mais do que recebe. Reduzir esse valor é o primeiro passo para juntar.`;
+    detail = `Você gasta em média ${money(Math.abs(averages.surplus))} a mais do que recebe. Reduzir esse valor é o primeiro passo para realizar o sonho.`;
   } else if (paymentMethod === 'a_vista') {
     if (plan.monthsToAfford === null) {
       tone = 'bad';
       headline = 'Vai levar mais de 5 anos';
-      detail = `Com a sobra média de ${money(averages.surplus)} por mês, o valor é alto demais. Tente um valor menor ou parcelar.`;
+      detail = `Com a sobra de ${money(averages.surplus)} por mês, o valor é alto demais. Tente um valor menor ou parcelar.`;
     } else if (plan.monthsToAfford === 0) {
       tone = 'ok';
       headline = 'Você já pode realizar';
-      detail = 'Sua sobra de um mês já cobre o valor.';
+      detail = 'A sobra de um mês já cobre o valor.';
     } else {
       tone = 'ok';
       headline = `Melhor momento: ${formatMonthDisplay(plan.bestMonthKey!)}`;
-      detail = `Guardando a sobra média de ${money(averages.surplus)} por mês, você junta ${money(cost)} ${monthsLabel(plan.monthsToAfford)}.`;
+      detail = `Guardando o que sobra a cada mês, já descontando as faturas e parcelas que você tem lançadas, você junta ${money(cost)} ${monthsLabel(plan.monthsToAfford)}.`;
     }
+  } else if (plan.monthsToAfford === null) {
+    tone = 'bad';
+    headline = 'A parcela não cabe no orçamento';
+    detail = `${installments}x de ${money(plan.installmentValue)} é mais do que sobra por mês, mesmo depois que suas faturas e parcelas atuais terminarem.${suggestedInstallments ? ` Dividindo em ${suggestedInstallments}x ou mais, caberia.` : ''}`;
   } else {
-    const share = plan.installmentShareOfSurplus;
-    if (share !== null && share <= 0.7) {
+    const share = plan.installmentShareOfSurplus ?? 1;
+    const when =
+      plan.monthsToAfford === 0
+        ? 'Pode começar agora.'
+        : `Melhor começar em ${formatMonthDisplay(plan.bestMonthKey!)}, quando suas faturas e parcelas atuais aliviarem.`;
+    if (share <= 0.7) {
       tone = 'ok';
       headline = 'Cabe no seu orçamento';
-      detail = `${installments}x de ${money(plan.installmentValue)} usa ${Math.round(share * 100)}% da sua sobra mensal. Pode começar agora.`;
-    } else if (share !== null && share <= 1) {
+    } else {
       tone = 'warn';
       headline = 'Cabe, mas fica apertado';
-      detail = `${installments}x de ${money(plan.installmentValue)} usa ${Math.round(share * 100)}% da sua sobra mensal.${suggestedInstallments ? ` Em ${suggestedInstallments}x ficaria mais leve.` : ''}`;
-    } else {
-      tone = 'bad';
-      headline = 'A parcela não cabe hoje';
-      detail = `${installments}x de ${money(plan.installmentValue)} é mais do que os ${money(averages.surplus)} que sobram por mês.${suggestedInstallments ? ` Dividindo em ${suggestedInstallments}x ou mais, caberia.` : ''}`;
     }
+    detail = `${installments}x de ${money(plan.installmentValue)} usa ${Math.round(share * 100)}% da sua sobra. ${when}`;
   }
 
   const toneText =
@@ -360,6 +363,12 @@ export function TravelSimulatorModal({
               </div>
             </div>
 
+            {hasData && (
+              <p className="text-xs text-slate-400 -mt-2.5">
+                Faturas do cartão e parcelas já lançadas entram na conta mês a mês.
+              </p>
+            )}
+
             {/* Resultado */}
             <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
               <p className={`text-base font-bold tracking-tight ${toneText}`}>{headline}</p>
@@ -367,7 +376,7 @@ export function TravelSimulatorModal({
             </div>
 
             {/* Quando junta (somente à vista) */}
-            {paymentMethod === 'a_vista' && hasData && averages.surplus > 0 && cost > 0 && (
+            {paymentMethod === 'a_vista' && hasData && plan.milestones.some((m) => m.monthKey) && cost > 0 && (
               <div className="space-y-2">
                 <span className={labelCls}>Quando você junta</span>
                 <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] divide-y divide-slate-100 dark:divide-white/[0.06] text-sm">
