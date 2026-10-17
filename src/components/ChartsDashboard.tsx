@@ -91,6 +91,7 @@ import { CategoryBudgetsModal } from './CategoryBudgetsModal';
 import { getCategoryInfo } from '../data/categories';
 import { CustomDatePickerModal } from './CustomDatePickerModal';
 import { TravelSimulatorModal } from './TravelSimulatorModal';
+import { FixedIncomeSection } from './FixedIncomeSection';
 import { NotificationsModal } from './NotificationsModal';
 
 interface ChartsDashboardProps {
@@ -106,6 +107,8 @@ interface ChartsDashboardProps {
   onOpenTutorial: () => void;
   onOpenAddExpense: () => void;
   onOpenAddIncome?: () => void;
+  onEditIncome?: (income: IncomeItem) => void;
+  onDeleteIncome?: (id: string) => void;
   onPayBill: (card: CreditCard, amount: number, monthYear: string) => void;
   onNextMonth: () => void;
   isBalanceVisible?: boolean;
@@ -259,6 +262,8 @@ export function ChartsDashboard({
   onOpenTutorial,
   onOpenAddExpense,
   onOpenAddIncome,
+  onEditIncome,
+  onDeleteIncome,
   isBalanceVisible = true,
   onToggleBalance,
   walletAccounts = [],
@@ -1100,6 +1105,18 @@ export function ChartsDashboard({
           </button>
         </div>
       </div>
+
+      {/* RENDA FIXA */}
+      {onEditIncome && onDeleteIncome && (
+        <FixedIncomeSection
+          incomes={incomes}
+          currentMonth={currentMonth}
+          isBalanceVisible={isBalanceVisible}
+          onAdd={() => (onOpenAddIncome ? onOpenAddIncome() : onOpenAddExpense())}
+          onEdit={onEditIncome}
+          onDelete={onDeleteIncome}
+        />
+      )}
 
       {/* SIMULADOR DE SONHOS (destaque) */}
       <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-200/80 dark:border-white/[0.08]">

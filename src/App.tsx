@@ -3886,6 +3886,8 @@ function computeDataSignature(data: any): string {
                 setEditingIncome(null);
                 setIsAddIncomeOpen(true);
               }}
+              onEditIncome={handleEditIncome}
+              onDeleteIncome={handleDeleteIncome}
               onPayBill={handlePayBill}
               onNextMonth={handleAdvanceToNextMonth}
               isBalanceVisible={isBalanceVisible}
