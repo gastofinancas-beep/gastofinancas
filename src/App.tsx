@@ -3855,14 +3855,13 @@ function computeDataSignature(data: any): string {
           {!dataLoadedFromCloud ? (
             <DashboardSkeleton />
           ) : (
-          <ErrorBoundary>
+          <ErrorBoundary key={activeTab}>
             <Suspense fallback={<ViewLoadingFallback />}>
-              <AnimatePresence mode="wait">
+              {/* Sem AnimatePresence mode="wait": se a animação de saída de uma tela travasse, a troca de aba nunca acontecia. */}
                 <motion.div
                   key={activeTab}
                   initial={{ opacity: 0, y: 14, scale: 0.995 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.995 }}
                   transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                   className="w-full"
                 >
@@ -4087,7 +4086,6 @@ function computeDataSignature(data: any): string {
             />
           )}
                 </motion.div>
-              </AnimatePresence>
         </Suspense>
         </ErrorBoundary>
         )}
