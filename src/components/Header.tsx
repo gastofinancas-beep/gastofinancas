@@ -13,6 +13,7 @@ import {
 import { GastoLogo } from './GastoLogo';
 import { MobileDrawerMenu } from './MobileDrawerMenu';
 import { NotificationsModal } from './NotificationsModal';
+import { getCardBillTotal, getNextDue, isCardBillPaid } from '../utils/billReminders';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { MonthSummary, UserProfile, MainTabType, CreditCard, SubscriptionItem, ExpenseItem, CardBillPayment } from '../types';
 
@@ -64,44 +65,36 @@ export function Header({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Lembretes e vencimentos próximos
-  const upcomingBills = useMemo(() => {
-    const alerts: { title: string; subtitle: string; days: number; isOverdue: boolean }[] = [];
+  // Avisos que realmente pedem atenção: fatura aberta com valor (vencida ou em até 3 dias) e assinaturas de hoje/amanhã.
+  const alertIds = useMemo(() => {
+    const ids: string[] = [];
     const today = new Date();
-    const currentDay = today.getDate();
-    
     cards.forEach(card => {
-      if (card.dueDay >= currentDay && card.dueDay <= currentDay + 5) {
-        alerts.push({
-          title: `Fatura ${card.name}`,
-          subtitle: `Vence dia ${card.dueDay}`,
-          days: card.dueDay - currentDay,
-          isOverdue: false
-        });
-      } else if (currentDay > card.dueDay && currentDay <= card.dueDay + 3) {
-        alerts.push({
-          title: `Fatura ${card.name}`,
-          subtitle: `Venceu dia ${card.dueDay}`,
-          days: currentDay - card.dueDay,
-          isOverdue: true
-        });
-      }
+      const { billMonth, daysDiff } = getNextDue(card.dueDay || 15, today, 3);
+      if (daysDiff > 3 || isCardBillPaid(card, paidBills, billMonth)) return;
+      if (getCardBillTotal(card, expenses, billMonth) <= 0) return;
+      ids.push(`c${card.id}`);
     });
-
     subscriptions.forEach(sub => {
       if (!sub.active) return;
-      if (sub.billingDay >= currentDay && sub.billingDay <= currentDay + 5) {
-        alerts.push({
-          title: `Assinatura ${sub.name}`,
-          subtitle: `Vence dia ${sub.billingDay}`,
-          days: sub.billingDay - currentDay,
-          isOverdue: false
-        });
-      }
+      const { daysDiff } = getNextDue(sub.billingDay, today, 0);
+      if (daysDiff === 0 || daysDiff === 1) ids.push(`s${sub.id}`);
     });
+    return ids;
+  }, [cards, subscriptions, expenses, paidBills]);
 
-    return alerts.sort((a, b) => (a.isOverdue === b.isOverdue ? a.days - b.days : a.isOverdue ? -1 : 1));
-  }, [cards, subscriptions]);
+  // O ponto some depois que a pessoa abre os avisos e só volta quando surgir um aviso novo.
+  const alertSignature = `${new Date().toDateString()}|${alertIds.join(',')}`;
+  const [seenSignature, setSeenSignature] = useState<string | null>(() => {
+    try { return localStorage.getItem('gasto_avisos_vistos'); } catch { return null; }
+  });
+  const hasNewAlerts = alertIds.length > 0 && seenSignature !== alertSignature;
+
+  const openNotifications = () => {
+    setShowNotifications(true);
+    setSeenSignature(alertSignature);
+    try { localStorage.setItem('gasto_avisos_vistos', alertSignature); } catch { /* ignora */ }
+  };
 
   return (
     <>
@@ -276,14 +269,14 @@ export function Header({
               <button
                 type="button"
                 id="header-notification-bell-btn"
-                onClick={() => setShowNotifications(true)}
+                onClick={openNotifications}
                 title="Lembretes & Notificações"
                 className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer relative"
                 aria-label="Lembretes & Notificações"
               >
                 <Bell size={18} className="stroke-[2.2]" />
-                {upcomingBills.length > 0 && (
-                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-black animate-pulse" />
+                {hasNewAlerts && (
+                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-black" />
                 )}
               </button>
 
