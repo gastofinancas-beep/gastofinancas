@@ -93,6 +93,14 @@ export function AddSubscriptionModal({
     }
   }, [isOpen]);
 
+  const nameSuggestions = React.useMemo(() => {
+    const q = name.trim().toLowerCase();
+    if (editingSubscription || q.length < 2) return [];
+    return POPULAR_SUBSCRIPTION_PRESETS.filter(
+      (p) => p.name.toLowerCase().includes(q) && p.name.toLowerCase() !== q
+    ).slice(0, 5);
+  }, [name, editingSubscription]);
+
   const handleSelectPreset = (preset: ServicePreset) => {
     triggerHaptic(8);
     setName(preset.name);
@@ -229,11 +237,30 @@ export function AddSubscriptionModal({
                     type="text"
                     required
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (!editingSubscription) setServiceKey('');
+                    }}
                     placeholder="Ex: Spotify, Netflix, ChatGPT, iCloud..."
                     className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#2C2C2E] border border-slate-200 dark:border-white/[0.10] text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-emerald-500/40"
                   />
                 </div>
+                {nameSuggestions.length > 0 && (
+                  <div className="mt-2 rounded-xl border border-slate-200/70 dark:border-white/[0.10] divide-y divide-slate-100 dark:divide-white/[0.06] overflow-hidden">
+                    {nameSuggestions.map((preset) => (
+                      <button
+                        key={preset.serviceKey}
+                        type="button"
+                        onClick={() => handleSelectPreset(preset)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+                      >
+                        <SubscriptionLogo serviceKey={preset.serviceKey} name={preset.name} size={24} />
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{preset.name}</span>
+                        <span className="ml-auto text-[11px] text-slate-400 truncate">{preset.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Amount & Cycle */}

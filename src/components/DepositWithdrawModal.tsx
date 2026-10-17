@@ -28,9 +28,11 @@ export function DepositWithdrawModal({
 }: DepositWithdrawModalProps) {
   const [amount, setAmount] = useState<number>(0);
   const [notes, setNotes] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      setError(null);
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
@@ -46,6 +48,12 @@ export function DepositWithdrawModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || amount <= 0) return;
+    if (mode === 'withdraw' && amount > (box.currentBalance || 0)) {
+      triggerHaptic(20);
+      setError(`O resgate não pode passar do saldo da caixinha (${formatCurrency(box.currentBalance || 0)}).`);
+      return;
+    }
+    setError(null);
 
     triggerHaptic(12);
     const trimmedNotes = notes.trim() || undefined;
@@ -197,6 +205,10 @@ export function DepositWithdrawModal({
               className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#2C2C2E] border border-slate-200 dark:border-white/[0.10] rounded-xl text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500/40"
             />
           </div>
+
+          {error && (
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</p>
+          )}
 
           {/* Bottom Fixed Action Buttons */}
           <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 sm:gap-3">

@@ -118,7 +118,7 @@ export function DriverDaySummaryModal({
       lucroPorKm,
       metaDiaria,
       progressoMeta,
-      tripsCount: dayTrips.length,
+      tripsCount: dayTrips.reduce((acc, t) => acc + (t.tripsCount || 1), 0),
       diagnosticType,
       diagnosticTitle,
       diagnosticMessage

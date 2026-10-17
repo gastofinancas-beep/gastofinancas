@@ -86,6 +86,7 @@ import { GastoLogo } from './GastoLogo';
 import { todayLocalISO } from '../utils/dateUtils';
 import { MonthlyBudgetsSection } from './MonthlyBudgetsSection';
 import { CategoryBudgetsModal } from './CategoryBudgetsModal';
+import { getCategoryInfo } from '../data/categories';
 import { CustomDatePickerModal } from './CustomDatePickerModal';
 import { TravelSimulatorModal } from './TravelSimulatorModal';
 import { NotificationsModal } from './NotificationsModal';
@@ -423,7 +424,8 @@ export function ChartsDashboard({
   const categorySpendingMap = useMemo(() => {
     const map: Record<string, number> = {};
     activeExpenses.forEach((item) => {
-      const cat = (item.expense.category || 'outros').toLowerCase().trim();
+      // Normaliza para o id da categoria (ex.: "Comida" -> "alimentacao"), o mesmo usado nos tetos.
+      const cat = getCategoryInfo(item.expense.category || 'outros').id;
       map[cat] = (map[cat] || 0) + item.expense.amount;
     });
     return map;
@@ -432,12 +434,21 @@ export function ChartsDashboard({
   // Total budgeted sum across all categories
   const totalBudgeted = useMemo(() => {
     const b = userProfile?.budgets || {};
-    return Object.values(b).reduce((sum, val) => sum + (val || 0), 0);
+    return Object.values(b).reduce((sum, val) => sum + (Number(val) > 0 ? Number(val) : 0), 0);
   }, [userProfile?.budgets]);
+
+  // Gasto apenas nas categorias que têm teto, para bater com o orçamento exibido abaixo.
+  const budgetedSpent = useMemo(() => {
+    const b = userProfile?.budgets || {};
+    return Object.entries(b).reduce(
+      (sum, [catId, limit]) => (Number(limit) > 0 ? sum + (categorySpendingMap[catId] || 0) : sum),
+      0
+    );
+  }, [userProfile?.budgets, categorySpendingMap]);
 
   // Overall budget progress percent
   const budgetPercent = totalBudgeted > 0 
-    ? Math.round((summary.totalMonth / totalBudgeted) * 100) 
+    ? Math.round((budgetedSpent / totalBudgeted) * 100) 
     : 0;
 
   // Handle saving budgets to userProfile
@@ -1105,7 +1116,7 @@ export function ChartsDashboard({
           {/* Card 1: Total Gasto do Mês / Orçamento */}
           <SpendingGoalCard
             title={totalBudgeted > 0 ? "Orçamento do Mês" : "Total do Mês"}
-            amount={summary.totalMonth || 0}
+            amount={(totalBudgeted > 0 ? budgetedSpent : summary.totalMonth) || 0}
             goal={totalBudgeted > 0 ? totalBudgeted : undefined}
             percent={budgetPercent}
             badgeText={

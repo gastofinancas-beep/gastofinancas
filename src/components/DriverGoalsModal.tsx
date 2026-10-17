@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Target, Trophy, Award, Check, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -20,6 +20,15 @@ export function DriverGoalsModal({
   const [daily, setDaily] = useState<string>(String(goals.daily || 300));
   const [weekly, setWeekly] = useState<string>(String(goals.weekly || 1800));
   const [monthly, setMonthly] = useState<string>(String(goals.monthly || 7500));
+
+  // O modal fica montado: relê as metas ao abrir (ex.: depois que a nuvem carrega).
+  useEffect(() => {
+    if (isOpen) {
+      setDaily(String(goals.daily || 300));
+      setWeekly(String(goals.weekly || 1800));
+      setMonthly(String(goals.monthly || 7500));
+    }
+  }, [isOpen, goals.daily, goals.weekly, goals.monthly]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,3 +1,4 @@
+import { normalizeBrazilPhone, buildWhatsAppUrl } from '../utils/whatsapp';
 import React, { useState, useMemo } from 'react';
 import { 
   Users, 
@@ -100,7 +101,29 @@ export function PeopleSplitView({
     };
   }, [people, activeExpenses]);
 
-  // Generate WhatsApp Message
+  // Mensagem curta de cobrança (WhatsApp): só o que está pendente
+  const generateChargeMessage = (person: Person, pending: number, items: any[]) => {
+    const firstName = person.name.trim().split(/\s+/)[0];
+    const pendingItems = items.filter((i) => !i.expense.paidByPerson);
+    let msg = `Oi, ${firstName}! Tudo bem?\nPassando para lembrar do acerto de ${formatMonthDisplay(currentMonth)}: você está me devendo *${formatCurrency(pending)}*.\n`;
+
+    if (pendingItems.length > 0 && pendingItems.length <= 5) {
+      msg += `\n`;
+      pendingItems.forEach((item) => {
+        const inst = item.currentInstallmentForMonth ? ` (${item.currentInstallmentForMonth}/${item.totalInstallments})` : '';
+        msg += `- ${item.expense.description}${inst}: ${formatCurrency(item.expense.amount)}\n`;
+      });
+    }
+
+    const myPixKey = userProfile?.pixKey || person.pixKey;
+    if (myPixKey) {
+      msg += `\nChave Pix: ${myPixKey}\n`;
+    }
+    msg += `\nObrigado!`;
+    return msg;
+  };
+
+  // Mensagem completa (copiar / e-mail), com todas as compras do mês
   const generatePixMessage = (person: Person, total: number, pending: number, items: any[]) => {
     let msg = `Olá, ${person.name}! 👋\nSeguem suas compras no meu cartão em *${formatMonthDisplay(currentMonth)}*:\n\n`;
     
@@ -135,18 +158,15 @@ export function PeopleSplitView({
     setTimeout(() => setCopiedPersonId(null), 2500);
   };
 
-  const handleOpenWhatsApp = (person: Person, total: number, pending: number, items: any[]) => {
+  const handleOpenWhatsApp = (person: Person, pending: number, items: any[]) => {
     triggerHaptic(12);
-    const msg = generatePixMessage(person, total, pending, items);
-    const cleanPhone = person.phone?.replace(/\D/g, '');
-    const url = cleanPhone 
-      ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    try {
-      window.open(url, '_blank');
-    } catch (e) {
-      console.warn('Could not open WhatsApp window:', e);
+    const phone = normalizeBrazilPhone(person.phone);
+    if (!phone) {
+      onEditPerson?.(person);
+      return;
     }
+    const url = buildWhatsAppUrl(phone, generateChargeMessage(person, pending, items));
+    window.open(url, '_blank', 'noopener');
   };
 
   const handleOpenEmail = (person: Person, total: number, pending: number, items: any[]) => {
@@ -381,15 +401,15 @@ export function PeopleSplitView({
               </button>
             )}
 
-            {!person.isSelf && selectedPersonStats.total > 0 && (
+            {!person.isSelf && selectedPersonStats.pending > 0 && (
               <button
                 type="button"
-                onClick={() => handleOpenWhatsApp(person, selectedPersonStats.total, selectedPersonStats.pending, selectedPersonItems)}
+                onClick={() => handleOpenWhatsApp(person, selectedPersonStats.pending, selectedPersonItems)}
                 className="flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
-                title="Cobrar via WhatsApp"
+                title={normalizeBrazilPhone(person.phone) ? 'Cobrar pelo WhatsApp' : 'Cadastre o WhatsApp para cobrar'}
               >
                 <Send size={13} />
-                <span>WhatsApp</span>
+                <span>{normalizeBrazilPhone(person.phone) ? 'Cobrar no WhatsApp' : 'Add WhatsApp'}</span>
               </button>
             )}
 
@@ -965,12 +985,16 @@ export function PeopleSplitView({
                     </button>
 
                     {/* WhatsApp Button (if not self and has purchases) */}
-                    {!person.isSelf && totalAmount > 0 && (
+                    {!person.isSelf && pendingAmount > 0 && (
                       <button
                         type="button"
-                        onClick={() => handleOpenWhatsApp(person, totalAmount, pendingAmount, personItems)}
-                        className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all active:scale-95 cursor-pointer shadow-2xs"
-                        title="Enviar cobrança via WhatsApp"
+                        onClick={() => handleOpenWhatsApp(person, pendingAmount, personItems)}
+                        className={`p-2.5 rounded-xl transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                          normalizeBrazilPhone(person.phone)
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.08] text-slate-500'
+                        }`}
+                        title={normalizeBrazilPhone(person.phone) ? 'Cobrar pelo WhatsApp' : 'Cadastre o WhatsApp para cobrar'}
                       >
                         <Send size={13} />
                       </button>
