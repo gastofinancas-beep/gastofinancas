@@ -1639,7 +1639,7 @@ export function ChartsDashboard({
         cards={cards}
         subscriptions={subscriptions}
         expenses={expenses}
-        currentMonth={currentMonth}
+        paidBills={paidBills}
         onTabChange={onNavigateToTab}
         onOpenProfile={onOpenProfile}
       />

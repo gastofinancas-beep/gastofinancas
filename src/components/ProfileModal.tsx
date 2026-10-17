@@ -54,7 +54,7 @@ import { hashPin } from '../utils/pinSecurity';
 import { 
   getNotificationPermission, 
   requestNotificationPermission, 
-  subscribeToPushNotifications, 
+  subscribeToPushNotifications, enableBackgroundPush, disableBackgroundPush, 
   NotificationPermissionStatus 
 } from '../utils/notifications';
 import { currentMonthLocal, todayLocalISO } from '../utils/dateUtils';
@@ -390,6 +390,7 @@ export function ProfileModal({
     if (!checked) {
       setNotificationsEnabled(false);
       setPushStatusMessage(null);
+      disableBackgroundPush().catch(() => {});
       const updated: UserProfile = {
         ...profile,
         notificationsEnabled: false,
@@ -408,7 +409,7 @@ export function ProfileModal({
     if (perm === 'granted') {
       setNotificationsEnabled(true);
       setPushStatusMessage('Notificações Push ativadas com sucesso neste dispositivo!');
-      subscribeToPushNotifications().catch(() => {});
+      enableBackgroundPush().catch(() => {});
       const updated: UserProfile = {
         ...profile,
         notificationsEnabled: true,
@@ -437,7 +438,7 @@ export function ProfileModal({
       if (perm === 'granted') {
         setNotificationsEnabled(true);
         willEnablePush = true;
-        subscribeToPushNotifications().catch(() => {});
+        enableBackgroundPush().catch(() => {});
       }
     }
     const updated: UserProfile = {
@@ -460,7 +461,7 @@ export function ProfileModal({
       if (perm === 'granted') {
         setNotificationsEnabled(true);
         willEnablePush = true;
-        subscribeToPushNotifications().catch(() => {});
+        enableBackgroundPush().catch(() => {});
       }
     }
     const updated: UserProfile = {

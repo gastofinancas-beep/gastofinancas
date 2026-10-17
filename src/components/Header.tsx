@@ -14,7 +14,7 @@ import { GastoLogo } from './GastoLogo';
 import { MobileDrawerMenu } from './MobileDrawerMenu';
 import { NotificationsModal } from './NotificationsModal';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
-import { MonthSummary, UserProfile, MainTabType, CreditCard, SubscriptionItem, ExpenseItem } from '../types';
+import { MonthSummary, UserProfile, MainTabType, CreditCard, SubscriptionItem, ExpenseItem, CardBillPayment } from '../types';
 
 interface HeaderProps {
   currentMonth: string;
@@ -34,6 +34,7 @@ interface HeaderProps {
   cards?: CreditCard[];
   subscriptions?: SubscriptionItem[];
   expenses?: ExpenseItem[];
+  paidBills?: CardBillPayment[];
   isSyncing: boolean;
   lastSyncedAt: Date | null;
   isOnline: boolean;
@@ -55,6 +56,7 @@ export function Header({
   cards = [],
   subscriptions = [],
   expenses = [],
+  paidBills = [],
   isSyncing,
   lastSyncedAt,
   isOnline,
@@ -345,7 +347,7 @@ export function Header({
         cards={cards}
         subscriptions={subscriptions}
         expenses={expenses}
-        currentMonth={currentMonth}
+        paidBills={paidBills}
         onTabChange={onTabChange}
         onOpenProfile={onOpenProfile}
       />
