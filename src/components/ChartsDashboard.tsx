@@ -45,7 +45,8 @@ import {
   Bell,
   ArrowDownLeft,
   Calendar,
-  Plane
+  Plane,
+  Star
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { 
@@ -68,7 +69,8 @@ import {
   FreelanceExpense,
   FreelanceGoals,
   IncomeItem,
-  AccumulationGoal
+  AccumulationGoal,
+  GoalCategory
 } from '../types';
 import { 
   formatCurrency, 
@@ -286,6 +288,11 @@ export function ChartsDashboard({
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isBudgetsModalOpen, setIsBudgetsModalOpen] = useState(false);
   const [isTravelSimulatorOpen, setIsTravelSimulatorOpen] = useState(false);
+  const [dreamCategory, setDreamCategory] = useState<GoalCategory>('viagem');
+  const openDreamSimulator = (category: GoalCategory) => {
+    setDreamCategory(category);
+    setIsTravelSimulatorOpen(true);
+  };
   const [showNotifications, setShowNotifications] = useState(false);
 
   // Lembretes e alertas de faturas/assinaturas para a central de notificações
@@ -1094,6 +1101,44 @@ export function ChartsDashboard({
         </div>
       </div>
 
+      {/* SIMULADOR DE SONHOS (destaque) */}
+      <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-200/80 dark:border-white/[0.08]">
+        <button
+          type="button"
+          onClick={() => openDreamSimulator('viagem')}
+          className="w-full flex items-center justify-between gap-3 text-left cursor-pointer group"
+        >
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              Simulador de Sonhos
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Pela sua média de ganhos e gastos, veja quando dá para realizar.
+            </p>
+          </div>
+          <ArrowRight size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors shrink-0" />
+        </button>
+        <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">
+          {([
+            { id: 'viagem', label: 'Viagem' },
+            { id: 'veiculo', label: 'Carro ou moto' },
+            { id: 'imovel', label: 'Casa' },
+            { id: 'eletronicos', label: 'Tecnologia' },
+            { id: 'estudos', label: 'Estudos' },
+            { id: 'outro', label: 'Outro' },
+          ] as { id: GoalCategory; label: string }[]).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => openDreamSimulator(id)}
+              className="shrink-0 px-3 py-1.5 rounded-full border border-slate-200 dark:border-white/[0.1] text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer active:scale-95"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ========================================================================= */}
       {/* 3. GASTOS DO MÊS - CARDS COM CIRCULAR PROGRESS (Image 1 reference)         */}
       {/* ========================================================================= */}
@@ -1573,12 +1618,12 @@ export function ChartsDashboard({
 
           {/* 8. SIMULADOR DE VIAGEM & APERTO */}
           <div 
-            onClick={() => setIsTravelSimulatorOpen(true)}
+            onClick={() => openDreamSimulator('outro')}
             className="rounded-2xl sm:rounded-3xl p-5 sm:p-6 bg-white dark:bg-[#1C1C1E] border border-slate-200/60 dark:border-white/[0.08] shadow-xs hover:shadow-md hover:border-blue-500/40 dark:hover:border-blue-500/30 transition-all active:scale-[0.98] cursor-pointer flex flex-col justify-between min-h-[140px] sm:min-h-[160px] group"
           >
             <div className="flex items-center justify-between mb-auto">
               <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all">
-                <Plane size={20} className="stroke-[2.2]" />
+                <Star size={20} className="stroke-[2.2]" />
               </div>
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">
                 <ArrowRight size={14} />
@@ -1587,13 +1632,13 @@ export function ChartsDashboard({
 
             <div className="mt-4">
               <h3 className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                Simulador de Viagem
+                Simulador de Sonhos
               </h3>
               <p className="font-bold text-sm sm:text-base text-slate-900 dark:text-white tabular-nums tracking-tight mt-0.5">
-                Quando Viajar?
+                Quando realizar?
               </p>
               <p className="text-xs font-normal text-slate-500 truncate mt-0.5">
-                Previsão de aperto e melhor mês
+                Melhor momento pela sua média
               </p>
             </div>
           </div>
@@ -1642,6 +1687,8 @@ export function ChartsDashboard({
         existingGoals={accumulationGoals}
         onSaveGoal={onSaveAccumulationGoal}
         isBalanceVisible={isBalanceVisible}
+        initialCategory={dreamCategory}
+        initialTargetAmount={3000}
       />
 
       <NotificationsModal
