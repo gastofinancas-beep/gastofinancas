@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft,
@@ -198,7 +199,21 @@ export function CategoryBudgetsModal({
     });
   }, [searchTerm, activeFilter, budgets, categorySpending]);
 
-  return (
+  // Trava a rolagem da página de trás enquanto a tela está aberta
+  useEffect(() => {
+    if (!isOpen) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [isOpen]);
+
+  // Renderiza no body (como os outros módulos): dentro do painel, o `fixed` ficava preso ao elemento animado da aba
+  // e a tela não abria por cima nem rolava.
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -675,6 +690,7 @@ export function CategoryBudgetsModal({
           </footer>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
