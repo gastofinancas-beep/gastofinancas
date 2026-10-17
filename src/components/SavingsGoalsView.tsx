@@ -8,7 +8,7 @@ import {
   TrendingUp, 
   Calendar, 
   Clock, 
-  Sparkles, 
+  Star, 
   Plus, 
   Pencil, 
   Trash2, 
@@ -535,32 +535,21 @@ export function SavingsGoalsView({
       {/* ========================================================================= */}
       {/* SECTION 1.5: SIMULADOR DE METAS & VIAGEM (BANNER CLEAN E RÁPIDO)          */}
       {/* ========================================================================= */}
-      <div id="travel-simulator-section" className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent dark:from-blue-950/30 dark:via-indigo-950/15 rounded-3xl p-4 sm:p-5 border border-blue-500/20 dark:border-blue-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Sparkles size={20} className="stroke-[2.2]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                Simulador de Sonhos
-              </h2>
-              <span className="px-2 py-0.2 rounded-full text-[9px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 uppercase tracking-wider">
-                Novo
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Viagem, carro, casa, celular... descubra em qual mês o seu sonho cabe no bolso, sem apertar o orçamento.
-            </p>
-          </div>
+      <div id="travel-simulator-section" className="bg-white dark:bg-[#1C1C1E] rounded-3xl p-4 sm:p-5 border border-slate-200/60 dark:border-white/[0.08] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+            Simulador de Sonhos
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Pela sua média de ganhos e gastos, descubra o melhor momento para viajar, comprar o carro, a casa ou o que você sonha.
+          </p>
         </div>
 
         <button
           type="button"
           onClick={handleOpenFreshSimulator}
-          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
         >
-          <Sparkles size={14} />
           <span>Simular meu sonho</span>
           <ArrowRight size={13} />
         </button>
@@ -784,7 +773,7 @@ export function SavingsGoalsView({
                       className="py-2 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98 shrink-0"
                       title="Simular o melhor mês para realizar"
                     >
-                      <Sparkles size={14} />
+                      <Star size={14} />
                       <span>Simular Mês Ideal</span>
                     </button>
                   </div>

@@ -46,9 +46,6 @@ import {
   ArrowDownLeft,
   Calendar,
   Plane,
-  Home,
-  Laptop,
-  GraduationCap,
   Star
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -1106,35 +1103,36 @@ export function ChartsDashboard({
 
       {/* SIMULADOR DE SONHOS (destaque) */}
       <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-200/80 dark:border-white/[0.08]">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0">
-            <Sparkles size={20} className="stroke-[2.2]" />
-          </div>
-          <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => openDreamSimulator('viagem')}
+          className="w-full flex items-center justify-between gap-3 text-left cursor-pointer group"
+        >
+          <div className="min-w-0">
             <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
               Simulador de Sonhos
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Descubra o melhor mês para realizar o seu sonho sem apertar o orçamento.
+              Pela sua média de ganhos e gastos, veja quando dá para realizar.
             </p>
           </div>
-        </div>
-        <div className="mt-3.5 flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+          <ArrowRight size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors shrink-0" />
+        </button>
+        <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">
           {([
-            { id: 'viagem', label: 'Viagem', Icon: Plane },
-            { id: 'veiculo', label: 'Carro ou moto', Icon: Car },
-            { id: 'imovel', label: 'Casa', Icon: Home },
-            { id: 'eletronicos', label: 'Tecnologia', Icon: Laptop },
-            { id: 'estudos', label: 'Estudos', Icon: GraduationCap },
-            { id: 'outro', label: 'Outro', Icon: Star },
-          ] as { id: GoalCategory; label: string; Icon: React.ElementType }[]).map(({ id, label, Icon }) => (
+            { id: 'viagem', label: 'Viagem' },
+            { id: 'veiculo', label: 'Carro ou moto' },
+            { id: 'imovel', label: 'Casa' },
+            { id: 'eletronicos', label: 'Tecnologia' },
+            { id: 'estudos', label: 'Estudos' },
+            { id: 'outro', label: 'Outro' },
+          ] as { id: GoalCategory; label: string }[]).map(({ id, label }) => (
             <button
               key={id}
               type="button"
               onClick={() => openDreamSimulator(id)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 dark:hover:bg-blue-950/40 transition-colors cursor-pointer active:scale-95"
+              className="shrink-0 px-3 py-1.5 rounded-full border border-slate-200 dark:border-white/[0.1] text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer active:scale-95"
             >
-              <Icon size={14} />
               {label}
             </button>
           ))}
@@ -1625,7 +1623,7 @@ export function ChartsDashboard({
           >
             <div className="flex items-center justify-between mb-auto">
               <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all">
-                <Sparkles size={20} className="stroke-[2.2]" />
+                <Star size={20} className="stroke-[2.2]" />
               </div>
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">
                 <ArrowRight size={14} />
@@ -1640,7 +1638,7 @@ export function ChartsDashboard({
                 Quando realizar?
               </p>
               <p className="text-xs font-normal text-slate-500 truncate mt-0.5">
-                Melhor mês e previsão de aperto
+                Melhor momento pela sua média
               </p>
             </div>
           </div>
