@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Wallet, CreditCard, Plus, Home, Users, Package, Repeat, Target, CheckCircle2, Hand, Sparkles,
@@ -34,6 +34,13 @@ interface Rect { top: number; left: number; width: number; height: number }
 
 const PAD = 8;
 
+function isFixed(el: HTMLElement | null): boolean {
+  for (let n: HTMLElement | null = el; n && n !== document.body; n = n.parentElement) {
+    if (getComputedStyle(n).position === 'fixed') return true;
+  }
+  return false;
+}
+
 function findVisible(selector: string): HTMLElement | null {
   const list = Array.from(document.querySelectorAll(selector)) as HTMLElement[];
   return list.find((el) => {
@@ -42,34 +49,58 @@ function findVisible(selector: string): HTMLElement | null {
   }) || null;
 }
 
-function useTargetRect(selector: string | null, active: boolean): Rect | null {
-  const [rect, setRect] = useState<Rect | null>(null);
+function useTargetRect(selector: string | null, active: boolean): { rect: Rect | null; settled: boolean } {
+  const [state, setState] = useState<{ rect: Rect | null; settled: boolean; selector: string | null }>({ rect: null, settled: false, selector: null });
 
   useLayoutEffect(() => {
-    if (!active || !selector) { setRect(null); return; }
+    setState({ rect: null, settled: false, selector });
+    if (!active || !selector) return;
     let timer = 0;
     let scrolled = false;
+    let misses = 0;
+    let firstSeen = 0;
+    let stableTicks = 0;
+    let last: Rect | null = null;
     const tick = () => {
       const el = findVisible(selector);
       if (el) {
-        if (!scrolled) { scrolled = true; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-        const r = el.getBoundingClientRect();
-        setRect((prev) =>
-          prev && Math.abs(prev.top - r.top) < 1 && Math.abs(prev.left - r.left) < 1 &&
-          Math.abs(prev.width - r.width) < 1 && Math.abs(prev.height - r.height) < 1
-            ? prev
-            : { top: r.top, left: r.left, width: r.width, height: r.height }
-        );
+        misses = 0;
+        if (!firstSeen) firstSeen = Date.now();
+        if (!scrolled) {
+          scrolled = true;
+          // Deixa o alvo no terço de cima da tela, longe do cartão de explicação que fica embaixo
+          const prevMargin = el.style.scrollMarginTop;
+          el.style.scrollMarginTop = `${Math.round(window.innerHeight * 0.22)}px`;
+          el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          window.setTimeout(() => { el.style.scrollMarginTop = prevMargin; }, 1200);
+        }
+        const b = el.getBoundingClientRect();
+        const r: Rect = { top: b.top, left: b.left, width: b.width, height: b.height };
+        const same = last && Math.abs(last.top - r.top) < 1 && Math.abs(last.left - r.left) < 1 &&
+          Math.abs(last.width - r.width) < 1 && Math.abs(last.height - r.height) < 1;
+        stableTicks = same ? stableTicks + 1 : 0;
+        last = r;
+        // Só considera "parado" depois que a rolagem suave terminou
+        const settled = isFixed(el) ? true : stableTicks >= 2 && Date.now() - firstSeen > 600;
+        setState((prev) => (same && prev.settled === settled && prev.rect && prev.selector === selector ? prev : { rect: r, settled, selector }));
+
       } else {
-        setRect(null);
+        // Dá um tempo para a tela do passo terminar de carregar antes de desistir do alvo
+        misses += 1;
+        if (misses > 6) {
+          last = null;
+          stableTicks = 0;
+          setState((prev) => (prev.rect ? { rect: null, settled: false, selector } : prev));
+        }
       }
-      timer = window.setTimeout(tick, 150);
+      timer = window.setTimeout(tick, 120);
     };
     tick();
     return () => window.clearTimeout(timer);
   }, [selector, active]);
 
-  return rect;
+  // Ignora uma medida que ainda é do passo anterior
+  return state.selector === selector ? { rect: state.rect, settled: state.settled } : { rect: null, settled: false };
 }
 
 function buildSteps(hasAccountAtStart: boolean): TourStepDef[] {
@@ -204,7 +235,17 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
     else if (step.kind === 'form' && !isAccountModalOpen) setIndex((i) => (hasAccount ? i + 1 : i - 1));
   }, [isOpen, step.kind, isAccountModalOpen, hasAccount]);
 
-  const rect = useTargetRect(step.target || null, isOpen);
+  const { rect, settled } = useTargetRect(step.target || null, isOpen);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [placed, setPlaced] = useState<{ stepId: string; side: 'top' | 'bottom' }>({ stepId: '', side: 'bottom' });
+  // O cartão começa embaixo e só sobe se o destaque ficar escondido atrás dele. Decide uma vez por passo, sem ficar pulando.
+  const placement: 'top' | 'bottom' = placed.stepId === step.id ? placed.side : 'bottom';
+  useEffect(() => {
+    if (!rect || !settled || placement === 'top') return;
+    const cardH = cardRef.current?.offsetHeight || 240;
+    const cardTop = window.innerHeight - 88 - cardH;
+    if (rect.top + rect.height + PAD > cardTop - 4) setPlaced({ stepId: step.id, side: 'top' });
+  }, [rect, settled, placement, step.id]);
 
   if (!isOpen || paused || typeof document === 'undefined') return null;
 
@@ -225,11 +266,9 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
       }
     : null;
 
-  const bubbleOnTop = rect ? rect.top + rect.height / 2 > vh * 0.5 : false;
   const centered = isFirst && step.id === 'intro';
-  const shade = 'fixed bg-black/60';
-  const shadeLight = 'fixed bg-black/30';
-  const shadeCls = !hole && step.tab ? shadeLight : shade;
+  const shade = 'fixed bg-black/60 transition-all duration-200 ease-out';
+  const shadeCls = 'fixed bg-black/60';
 
   // Toca no elemento real em vez de deixar o toque "vazar" para o que estiver embaixo.
   const pressTarget = () => {
@@ -253,7 +292,7 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
           <div className={shade} style={{ pointerEvents: 'auto', top: hole.top, left: 0, width: hole.left, height: hole.height }} />
           <div className={shade} style={{ pointerEvents: 'auto', top: hole.top, left: hole.left + hole.width, right: 0, height: hole.height }} />
           <div
-            className="fixed rounded-2xl border-2 border-emerald-400"
+            className="fixed rounded-2xl border-2 border-emerald-400 transition-all duration-200 ease-out"
             onClick={interactive ? pressTarget : undefined}
             style={{
               top: hole.top, left: hole.left, width: hole.width, height: hole.height,
@@ -271,16 +310,21 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
         className="fixed left-0 right-0 flex justify-center px-4"
         style={{
           pointerEvents: 'none',
-          ...(centered || (!rect && !step.tab)
+          ...(centered
             ? { top: '50%', transform: 'translateY(-50%)' }
-            : bubbleOnTop
-              ? { top: 'max(1rem, env(safe-area-inset-top, 0px))' }
-              : { bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))' }),
+            : {
+                bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))',
+                transform: placement === 'top'
+                  ? `translateY(-${Math.max(0, vh - 88 - (cardRef.current?.offsetHeight || 240) - 24)}px)`
+                  : 'translateY(0)',
+              }),
         }}
       >
         <div
-          className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#1C1C1E] border border-slate-200/60 dark:border-white/[0.08] shadow-2xl p-5"
-          style={{ pointerEvents: 'auto' }}
+          ref={cardRef}
+          key={step.id}
+          className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#1C1C1E] border border-slate-200/60 dark:border-white/[0.08] shadow-2xl p-5 tour-card-in"
+          style={{ pointerEvents: 'auto', animationDelay: step.target ? '170ms' : '0ms' }}
         >
           <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -328,7 +372,7 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
         </div>
       </div>
 
-      <style>{`@keyframes tourPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}50%{box-shadow:0 0 0 8px rgba(52,211,153,0)}}`}</style>
+      <style>{`@keyframes tourCardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}.tour-card-in{animation:tourCardIn 220ms ease-out both}@keyframes tourPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}50%{box-shadow:0 0 0 8px rgba(52,211,153,0)}}`}</style>
     </div>,
     document.body
   );
