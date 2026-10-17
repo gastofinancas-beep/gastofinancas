@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Delete, 
-  ShieldCheck, 
-  Mail, 
+  Delete,  
   Check, 
   LogOut,
   ChevronLeft,
   ArrowRight,
-  Lock,
-  KeyRound,
   ScanFace,
   Fingerprint
 } from 'lucide-react';
@@ -36,19 +32,6 @@ interface LockScreenProps {
 }
 
 type LockViewMode = 'enter-pin' | 'forgot-pin-options' | 'set-new-pin' | 'confirm-new-pin' | 'reset-success';
-
-const KEYPAD_LETTERS: Record<string, string> = {
-  '1': '',
-  '2': 'ABC',
-  '3': 'DEF',
-  '4': 'GHI',
-  '5': 'JKL',
-  '6': 'MNO',
-  '7': 'PQRS',
-  '8': 'TUV',
-  '9': 'WXYZ',
-  '0': '+',
-};
 
 export const LockScreen: React.FC<LockScreenProps> = ({ 
   userProfile, 
@@ -514,12 +497,103 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     viewMode === 'set-new-pin' ? newPin : 
     confirmNewPin;
 
+  const keysDisabled = viewMode === 'enter-pin' && lockRemainingSeconds > 0;
+
+  const keyBase =
+    'h-[68px] w-[68px] sm:h-[72px] sm:w-[72px] mx-auto rounded-full flex items-center justify-center select-none cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
+  const digitCls = `${keyBase} text-[28px] font-medium text-slate-900 dark:text-white active:bg-slate-200/80 dark:active:bg-white/10`;
+  const iconKeyCls = `${keyBase} text-slate-500 dark:text-slate-400 active:bg-slate-200/80 dark:active:bg-white/10`;
+
+  const renderDots = (value: string) => (
+    <motion.div
+      animate={error ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+      transition={{ duration: 0.35, ease: 'easeInOut' }}
+      className="flex items-center justify-center gap-4 py-3"
+    >
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className={`w-3.5 h-3.5 rounded-full border-[1.5px] transition-all duration-150 ${
+            error
+              ? 'bg-rose-500 border-rose-500'
+              : i < value.length
+              ? 'bg-slate-900 border-slate-900 dark:bg-white dark:border-white scale-110'
+              : 'border-slate-300 dark:border-white/25'
+          }`}
+        />
+      ))}
+    </motion.div>
+  );
+
+  const renderKeypad = (value: string, allowBiometric: boolean) => (
+    <div className="grid grid-cols-3 gap-y-2.5 w-full max-w-[300px]">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+        <button
+          key={num}
+          type="button"
+          disabled={keysDisabled}
+          onClick={() => handleKeyPress(num.toString())}
+          className={digitCls}
+        >
+          {num}
+        </button>
+      ))}
+
+      {allowBiometric && value.length === 0 ? (
+        <button
+          type="button"
+          onClick={handleBiometricUnlock}
+          disabled={isBiometricAuthenticating}
+          className={iconKeyCls}
+          title={biometricLabel.name}
+        >
+          {biometricLabel.hasFace ? (
+            <ScanFace size={26} className={isBiometricAuthenticating ? 'animate-pulse' : ''} />
+          ) : (
+            <Fingerprint size={26} className={isBiometricAuthenticating ? 'animate-pulse' : ''} />
+          )}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleClear}
+          disabled={keysDisabled || value.length === 0}
+          className={`${iconKeyCls} text-sm font-medium`}
+          title="Limpar"
+        >
+          Limpar
+        </button>
+      )}
+
+      <button
+        type="button"
+        disabled={keysDisabled}
+        onClick={() => handleKeyPress('0')}
+        className={digitCls}
+      >
+        0
+      </button>
+
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={keysDisabled || value.length === 0}
+        className={iconKeyCls}
+        title="Apagar"
+      >
+        <Delete size={24} />
+      </button>
+    </div>
+  );
+
+  const textLinkCls =
+    'text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer';
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#F8FAF9] dark:bg-[#0E1110] flex flex-col items-center justify-between p-4 sm:p-6 select-none overflow-y-auto font-sans text-slate-900 dark:text-white antialiased transition-colors duration-300">
+    <div className="fixed inset-0 z-[9999] bg-white dark:bg-[#0E1110] flex flex-col items-center justify-between p-4 sm:p-6 select-none overflow-y-auto font-sans text-slate-900 dark:text-white antialiased transition-colors duration-300">
       <header className="w-full flex items-center justify-between pt-1 max-w-sm sm:max-w-md z-10">
         {viewMode !== 'enter-pin' && viewMode !== 'reset-success' ? (
-          <motion.button
-            whileTap={{ scale: 0.92 }}
+          <button
             type="button"
             onClick={() => {
               triggerHaptic(8);
@@ -530,202 +604,105 @@ export const LockScreen: React.FC<LockScreenProps> = ({
               setPasswordError(null);
               setReauthError(null);
             }}
-            className="w-10 h-10 rounded-xl bg-white dark:bg-[#1C1C1E]/90 backdrop-blur-md border border-slate-200 dark:border-white/[0.08] hover:border-emerald-500/50 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+            className="-ml-2 p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="Voltar ao PIN"
           >
-            <ChevronLeft size={20} />
-          </motion.button>
+            <ChevronLeft size={22} />
+          </button>
         ) : (
-          <div className="flex items-center gap-2.5">
-            <GastoLogo size={38} />
-            <div className="flex flex-col">
-              <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white leading-none">
-                Gastô<span className="text-emerald-500 dark:text-emerald-400">?</span>
-              </span>
-              <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400/90 tracking-wider">
-                SEGURANÇA
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <GastoLogo size={30} />
+            <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+              Gastô<span className="text-emerald-500 dark:text-emerald-400">?</span>
+            </span>
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/15 px-3 py-1 rounded-xl border border-emerald-500/25 shadow-2xs">
-            <ShieldCheck size={13} className="text-emerald-500 dark:text-emerald-400" />
-            <span>PROTEGIDO</span>
-          </div>
-
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-white/[0.08] transition-all cursor-pointer shadow-2xs"
-              title="Sair da conta"
-            >
-              <LogOut size={16} />
-            </button>
-          )}
-        </div>
+        {onSignOut && (
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="-mr-2 p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            title="Sair da conta"
+          >
+            <LogOut size={18} />
+          </button>
+        )}
       </header>
 
       {viewMode === 'enter-pin' && (
-        <main className="w-full max-w-sm sm:max-w-md flex-1 flex flex-col items-center justify-between py-3 sm:py-5 my-auto z-10">
-          <div className="flex flex-col items-center text-center space-y-2.5 pt-1 w-full">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 320, damping: 24 }}
-              className="relative"
-            >
-              {photoURL ? (
-                <div className="relative">
-                  <div className="w-19 h-19 sm:w-21 sm:h-21 rounded-2xl overflow-hidden border-2 border-emerald-500/40 shadow-xs bg-slate-100 dark:bg-[#2C2C2E]">
-                    <img 
-                      src={photoURL} 
-                      alt={displayName || 'Perfil'} 
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover" 
-                    />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-6.5 h-6.5 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs border-2 border-white dark:border-[#090A09]">
-                    <Lock size={12} className="stroke-[2.5]" />
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="w-19 h-19 sm:w-21 sm:h-21 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-xs">
-                    <KeyRound size={34} className="stroke-[2.2]" />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-6.5 h-6.5 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs border-2 border-white dark:border-[#090A09]">
-                    <Lock size={12} className="stroke-[2.5]" />
-                  </div>
-                </div>
-              )}
-            </motion.div>
-
-            <div>
-              <h1 className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 dark:text-white">
-                {displayName ? `Olá, ${displayName}` : 'Digite seu PIN'}
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Insira seu código de segurança para acessar
-              </p>
-            </div>
-
-            {displayEmail ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-lg border border-slate-200/60 dark:border-white/[0.08] bg-white/80 dark:bg-[#1C1C1E]/80 text-xs font-medium text-slate-600 dark:text-slate-400 shadow-2xs max-w-[240px] truncate">
-                <span className="truncate">{displayEmail}</span>
+        <main className="w-full max-w-sm sm:max-w-md flex-1 flex flex-col items-center justify-between py-4 my-auto z-10">
+          <div className="flex flex-col items-center text-center w-full">
+            {photoURL ? (
+              <img
+                src={photoURL}
+                alt={displayName || 'Perfil'}
+                referrerPolicy="no-referrer"
+                className="w-16 h-16 rounded-full object-cover bg-slate-100 dark:bg-[#2C2C2E]"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-2xl font-semibold text-slate-600 dark:text-slate-200">
+                {(displayName || displayEmail || 'G').charAt(0).toUpperCase()}
               </div>
-            ) : null}
+            )}
 
-            <motion.div 
-              animate={error ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="flex items-center justify-center gap-2.5 pt-2 pb-1 w-full max-w-[320px]"
-            >
-              {[...Array(6)].map((_, i) => {
-                const isFilled = i < pin.length;
-                const isCurrent = i === pin.length;
-                return (
-                  <motion.div 
-                    key={i}
-                    initial={false}
-                    animate={isFilled ? { scale: [1.05, 1] } : { scale: 1 }}
-                    transition={{ type: "spring", stiffness: 450, damping: 20 }}
-                    className={`relative w-10 sm:w-11 h-13 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                      error
-                        ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600'
-                        : isFilled
-                        ? 'border-emerald-500/80 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400'
-                        : isCurrent
-                        ? 'border-emerald-500 dark:border-emerald-400 bg-white dark:bg-[#1C1C1E] ring-2 ring-emerald-500/20'
-                        : 'border-slate-200 dark:border-white/[0.08] bg-white/70 dark:bg-[#1C1C1E]/60'
-                    }`} 
-                  >
-                    {isFilled ? (
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="w-2.5 h-2.5 rounded-sm bg-emerald-500 dark:bg-emerald-400"
-                      />
-                    ) : isCurrent ? (
-                      <div className="w-1.5 h-4 rounded-full bg-emerald-500/60 dark:bg-emerald-400/60 animate-pulse" />
-                    ) : (
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-[#3A3A3C]" />
-                    )}
-                  </motion.div>
-                );
-              })}
-            </motion.div>
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white mt-4">
+              {displayName ? `Olá, ${displayName}` : 'Bem-vindo de volta'}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Digite seu PIN para entrar</p>
 
-            <div className="pt-1 min-h-8 flex items-center justify-center">
-              {biometricSuccess ? (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/25"
-                >
-                  <Check size={14} className="stroke-[3]" />
-                  <span>Autenticado com sucesso!</span>
-                </motion.div>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.96 }}
-                  type="button"
-                  id="btn-biometric-unlock-banner"
-                  onClick={handleBiometricUnlock}
-                  disabled={isBiometricAuthenticating}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
-                    isBiometricAuthenticating
-                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-400'
-                      : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
-                  }`}
-                  title={biometricLabel.name}
-                >
-                  {biometricLabel.hasFace ? (
-                    <ScanFace size={16} className={`text-emerald-600 dark:text-emerald-400 ${isBiometricAuthenticating ? 'animate-pulse' : ''}`} />
-                  ) : (
-                    <Fingerprint size={16} className={`text-emerald-600 dark:text-emerald-400 ${isBiometricAuthenticating ? 'animate-pulse' : ''}`} />
-                  )}
-                  <span>
-                    {isBiometricAuthenticating
-                      ? 'Aguardando sensor...'
-                      : `Desbloquear com ${biometricLabel.short}`}
-                  </span>
-                </motion.button>
-              )}
-            </div>
+            <div className="mt-5">{renderDots(pin)}</div>
 
-            <div className="min-h-5 flex items-center justify-center">
+            <div className="min-h-6 flex items-center justify-center">
               <AnimatePresence mode="wait">
-                {lockRemainingSeconds > 0 ? (
-                  <motion.p 
-                    key="lockout"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                {biometricSuccess ? (
+                  <motion.p
+                    key="ok"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="text-rose-600 dark:text-rose-400 text-xs font-semibold text-center px-4"
+                    className="text-emerald-600 dark:text-emerald-400 text-sm font-medium flex items-center gap-1.5"
+                  >
+                    <Check size={15} className="stroke-[3]" />
+                    Autenticado
+                  </motion.p>
+                ) : lockRemainingSeconds > 0 ? (
+                  <motion.p
+                    key="lockout"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-rose-600 dark:text-rose-400 text-sm text-center px-4"
                   >
                     Muitas tentativas. Tente novamente em {formatCountdown(lockRemainingSeconds)}.
                   </motion.p>
                 ) : errorMessage ? (
-                  <motion.p 
+                  <motion.p
                     key="err"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="text-rose-600 dark:text-rose-400 text-xs font-semibold text-center px-4"
+                    className="text-rose-600 dark:text-rose-400 text-sm text-center px-4"
                   >
                     {errorMessage}
                   </motion.p>
-                ) : biometricError ? (
-                  <motion.p 
-                    key="bio"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                ) : isBiometricAuthenticating ? (
+                  <motion.p
+                    key="wait"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="text-amber-600 dark:text-amber-400 text-[11px] font-medium text-center px-4"
+                    className="text-slate-500 dark:text-slate-400 text-sm"
+                  >
+                    Aguardando {biometricLabel.short}...
+                  </motion.p>
+                ) : biometricError ? (
+                  <motion.p
+                    key="bio"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-amber-600 dark:text-amber-400 text-sm text-center px-4"
                   >
                     {biometricError}
                   </motion.p>
@@ -734,79 +711,10 @@ export const LockScreen: React.FC<LockScreenProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-2.5 max-w-[320px] w-full z-10 py-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <motion.button
-                key={num}
-                whileTap={{ scale: lockRemainingSeconds > 0 ? 1 : 0.94 }}
-                onClick={() => handleKeyPress(num.toString())}
-                disabled={lockRemainingSeconds > 0}
-                className="h-14 sm:h-15 rounded-2xl bg-white dark:bg-[#1C1C1E]/90 border border-slate-200/60 dark:border-white/[0.08]/90 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:bg-slate-50 dark:hover:bg-white/[0.04]/80 active:bg-emerald-500/10 dark:active:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer group select-none relative overflow-hidden"
-              >
-                <span className="text-xl sm:text-2xl font-bold leading-none tracking-tight">{num}</span>
-                {KEYPAD_LETTERS[num.toString()] && (
-                  <span className="text-[9px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 uppercase mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {KEYPAD_LETTERS[num.toString()]}
-                  </span>
-                )}
-              </motion.button>
-            ))}
+          <div className="w-full flex flex-col items-center gap-3 pt-2">
+            {renderKeypad(pin, true)}
 
-            {pin.length === 0 ? (
-              <motion.button
-                whileTap={{ scale: 0.94 }}
-                onClick={handleBiometricUnlock}
-                disabled={isBiometricAuthenticating}
-                className="h-14 sm:h-15 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-500/30 dark:border-emerald-500/30 hover:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer select-none active:scale-95"
-                title={biometricLabel.name}
-              >
-                {biometricLabel.hasFace ? (
-                  <ScanFace size={22} className={`stroke-[2.2] ${isBiometricAuthenticating ? 'animate-pulse' : ''}`} />
-                ) : (
-                  <Fingerprint size={22} className={`stroke-[2.2] ${isBiometricAuthenticating ? 'animate-pulse' : ''}`} />
-                )}
-                <span className="text-[8px] font-extrabold uppercase mt-1 text-center tracking-tight leading-none px-1">
-                  {isBiometricAuthenticating ? 'Aguarde...' : biometricLabel.short}
-                </span>
-              </motion.button>
-            ) : (
-              <motion.button
-                whileTap={{ scale: lockRemainingSeconds > 0 ? 1 : 0.94 }}
-                onClick={handleClear}
-                disabled={lockRemainingSeconds > 0}
-                className="h-14 sm:h-15 rounded-2xl bg-white/70 dark:bg-[#1C1C1E]/50 border border-slate-200/60 dark:border-white/[0.08]/80 hover:border-emerald-500/30 dark:hover:border-white/[0.14] disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer select-none"
-                title="Limpar PIN"
-              >
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">C</span>
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Limpar</span>
-              </motion.button>
-            )}
-
-            <motion.button
-              whileTap={{ scale: lockRemainingSeconds > 0 ? 1 : 0.94 }}
-              onClick={() => handleKeyPress('0')}
-              disabled={lockRemainingSeconds > 0}
-              className="h-14 sm:h-15 rounded-2xl bg-white dark:bg-[#1C1C1E]/90 border border-slate-200/60 dark:border-white/[0.08]/90 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:bg-slate-50 dark:hover:bg-white/[0.04]/80 active:bg-emerald-500/10 dark:active:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer group select-none relative overflow-hidden"
-            >
-              <span className="text-xl sm:text-2xl font-bold leading-none tracking-tight">0</span>
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">+</span>
-            </motion.button>
-
-            <motion.button
-              whileTap={{ scale: lockRemainingSeconds > 0 ? 1 : 0.94 }}
-              onClick={handleDelete}
-              disabled={lockRemainingSeconds > 0}
-              className="h-14 sm:h-15 rounded-2xl bg-white/70 dark:bg-[#1C1C1E]/50 border border-slate-200/60 dark:border-white/[0.08]/80 hover:border-rose-300 dark:hover:border-rose-900/50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 flex flex-col items-center justify-center active:bg-rose-50 dark:active:bg-rose-950/40 transition-all shadow-xs cursor-pointer select-none"
-              title="Apagar dígito"
-            >
-              <Delete size={20} className="stroke-[2.2]" />
-              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Apagar</span>
-            </motion.button>
-          </div>
-
-          <div className="pt-2">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+            <button
               type="button"
               id="btn-forget-pin"
               onClick={() => {
@@ -816,43 +724,34 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                 setReauthError(null);
                 setViewMode('forgot-pin-options');
               }}
-              className="px-5 py-2 rounded-xl border border-slate-200/60 dark:border-white/[0.08] hover:border-emerald-500/40 bg-white/80 dark:bg-[#1C1C1E]/80 text-xs font-bold text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 shadow-2xs transition-all cursor-pointer"
+              className={`${textLinkCls} py-2`}
             >
               Esqueci meu PIN
-            </motion.button>
+            </button>
           </div>
         </main>
       )}
 
       {viewMode === 'forgot-pin-options' && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           className="w-full max-w-sm sm:max-w-md flex-1 flex flex-col items-center justify-center text-center space-y-6 py-6 z-10 my-auto"
         >
-          <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
-            <Mail size={36} className="stroke-[2.2]" />
-          </div>
-
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Recuperar seu PIN
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto leading-relaxed">
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">Recuperar seu PIN</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto leading-relaxed">
               Confirme que é você para criar um novo PIN.
             </p>
-
             {displayEmail ? (
-              <div className="mt-3 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/[0.08] text-emerald-600 dark:text-emerald-400 text-xs font-bold shadow-2xs">
-                <Mail size={13} />
-                <span>{displayEmail}</span>
-              </div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200 mt-3 truncate max-w-[280px] mx-auto">
+                {displayEmail}
+              </p>
             ) : null}
           </div>
 
           {!auth.currentUser ? (
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto font-medium">
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
               Entre novamente na sua conta para redefinir o PIN.
             </p>
           ) : (
@@ -862,44 +761,39 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                   <div className="space-y-1">
                     <input
                       type="password"
-                      placeholder="Digite sua senha"
+                      placeholder="Sua senha"
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
                         setPasswordError(null);
                       }}
-                      className="w-full py-3 px-4 text-center text-base font-medium rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1C1C1E] outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 dark:text-white transition-all shadow-xs"
+                      className="w-full py-3 px-4 text-base rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.05] outline-none focus:border-slate-900 dark:focus:border-white text-slate-900 dark:text-white transition-colors"
                     />
-                    {passwordError && (
-                      <p className="text-xs text-rose-500 font-semibold">{passwordError}</p>
-                    )}
+                    {passwordError && <p className="text-sm text-rose-500">{passwordError}</p>}
                   </div>
 
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
+                  <button
                     type="submit"
                     disabled={!password || isReauthenticating}
-                    className="w-full py-3.5 px-5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-3 px-5 bg-slate-900 dark:bg-white hover:opacity-90 disabled:opacity-40 text-white dark:text-slate-900 rounded-xl font-semibold text-sm transition-opacity cursor-pointer flex items-center justify-center gap-2"
                   >
                     <span>Confirmar</span>
                     <ArrowRight size={16} />
-                  </motion.button>
+                  </button>
                 </form>
               )}
 
               {isGoogleUser && (
-                <div className="w-full pt-1">
+                <div className="w-full">
                   <button
                     type="button"
                     onClick={handleGoogleReauth}
                     disabled={isReauthenticating}
-                    className="w-full py-2.5 px-4 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1C1C1E] hover:border-emerald-500/50 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                    className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-white/[0.1] text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >
-                    <span>Continuar com Google</span>
+                    Continuar com Google
                   </button>
-                  {reauthError && (
-                    <p className="text-xs text-rose-500 font-semibold mt-2">{reauthError}</p>
-                  )}
+                  {reauthError && <p className="text-sm text-rose-500 mt-2">{reauthError}</p>}
                 </div>
               )}
             </div>
@@ -908,76 +802,31 @@ export const LockScreen: React.FC<LockScreenProps> = ({
       )}
 
       {(viewMode === 'set-new-pin' || viewMode === 'confirm-new-pin') && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
-          className="w-full max-w-sm sm:max-w-md flex-1 flex flex-col items-center justify-between py-4 sm:py-5 my-auto z-10"
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full max-w-sm sm:max-w-md flex-1 flex flex-col items-center justify-between py-4 my-auto z-10"
         >
-          <div className="flex flex-col items-center text-center space-y-2.5 pt-1 w-full">
-            <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 dark:text-white">
-              {viewMode === 'set-new-pin' ? 'Novo PIN' : 'Confirmar Novo PIN'}
+          <div className="flex flex-col items-center text-center w-full">
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              {viewMode === 'set-new-pin' ? 'Crie um novo PIN' : 'Confirme o novo PIN'}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
               {viewMode === 'set-new-pin'
-                ? 'Digite um novo código de 6 números para redefinir o acesso.'
-                : 'Digite novamente os 6 números do novo PIN.'}
+                ? 'Escolha 6 números para proteger o app.'
+                : 'Digite os 6 números novamente.'}
             </p>
 
-            {displayEmail ? (
-              <div className="inline-flex items-center px-3.5 py-1 rounded-lg border border-slate-200/60 dark:border-white/[0.08] bg-white/80 dark:bg-[#1C1C1E]/80 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-2xs">
-                <span className="truncate">{displayEmail}</span>
-              </div>
-            ) : null}
+            <div className="mt-5">{renderDots(currentDisplayPin)}</div>
 
-            <motion.div 
-              animate={error ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
-              transition={{ duration: 0.35 }}
-              className="flex items-center justify-center gap-2.5 pt-3 pb-1 w-full max-w-[320px]"
-            >
-              {[...Array(6)].map((_, i) => {
-                const isFilled = i < currentDisplayPin.length;
-                const isCurrent = i === currentDisplayPin.length;
-                return (
-                  <motion.div 
-                    key={i}
-                    initial={false}
-                    animate={isFilled ? { scale: [1.05, 1] } : { scale: 1 }}
-                    transition={{ type: "spring", stiffness: 450, damping: 20 }}
-                    className={`relative w-10 sm:w-11 h-13 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                      error
-                        ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600'
-                        : isFilled
-                        ? 'border-emerald-500/80 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400'
-                        : isCurrent
-                        ? 'border-emerald-500 dark:border-emerald-400 bg-white dark:bg-[#1C1C1E] ring-2 ring-emerald-500/20'
-                        : 'border-slate-200 dark:border-white/[0.08] bg-white/70 dark:bg-[#1C1C1E]/60'
-                    }`} 
-                  >
-                    {isFilled ? (
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="w-2.5 h-2.5 rounded-sm bg-emerald-500 dark:bg-emerald-400"
-                      />
-                    ) : isCurrent ? (
-                      <div className="w-1.5 h-4 rounded-full bg-emerald-500/60 dark:bg-emerald-400/60 animate-pulse" />
-                    ) : (
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-[#3A3A3C]" />
-                    )}
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-
-            <div className="h-5 flex items-center justify-center">
+            <div className="min-h-6 flex items-center justify-center">
               <AnimatePresence>
                 {errorMessage && (
-                  <motion.p 
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="text-rose-600 dark:text-rose-400 text-xs font-semibold"
+                    className="text-rose-600 dark:text-rose-400 text-sm"
                   >
                     {errorMessage}
                   </motion.p>
@@ -986,61 +835,16 @@ export const LockScreen: React.FC<LockScreenProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-2.5 max-w-[320px] w-full z-10 py-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <motion.button
-                key={num}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => handleKeyPress(num.toString())}
-                className="h-14 sm:h-15 rounded-2xl bg-white dark:bg-[#1C1C1E]/90 border border-slate-200/60 dark:border-white/[0.08]/90 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:bg-slate-50 dark:hover:bg-white/[0.04]/80 active:bg-emerald-500/10 dark:active:bg-emerald-500/15 text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer group select-none relative overflow-hidden"
-              >
-                <span className="text-xl sm:text-2xl font-bold leading-none tracking-tight">{num}</span>
-                {KEYPAD_LETTERS[num.toString()] && (
-                  <span className="text-[9px] font-extrabold tracking-widest text-slate-400 dark:text-slate-500 uppercase mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {KEYPAD_LETTERS[num.toString()]}
-                  </span>
-                )}
-              </motion.button>
-            ))}
+          <div className="w-full flex flex-col items-center gap-3 pt-2">
+            {renderKeypad(currentDisplayPin, false)}
 
-            <motion.button
-              whileTap={{ scale: 0.94 }}
-              onClick={handleClear}
-              className="h-14 sm:h-15 rounded-2xl bg-white/70 dark:bg-[#1C1C1E]/50 border border-slate-200/60 dark:border-white/[0.08]/80 hover:border-emerald-500/30 dark:hover:border-white/[0.14] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer select-none"
-              title="Limpar PIN"
-            >
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">C</span>
-              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Limpar</span>
-            </motion.button>
-
-            <motion.button
-              whileTap={{ scale: 0.94 }}
-              onClick={() => handleKeyPress('0')}
-              className="h-14 sm:h-15 rounded-2xl bg-white dark:bg-[#1C1C1E]/90 border border-slate-200/60 dark:border-white/[0.08]/90 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:bg-slate-50 dark:hover:bg-white/[0.04]/80 active:bg-emerald-500/10 dark:active:bg-emerald-500/15 text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center transition-all shadow-xs cursor-pointer group select-none relative overflow-hidden"
-            >
-              <span className="text-xl sm:text-2xl font-bold leading-none tracking-tight">0</span>
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">+</span>
-            </motion.button>
-
-            <motion.button
-              whileTap={{ scale: 0.94 }}
-              onClick={handleDelete}
-              className="h-14 sm:h-15 rounded-2xl bg-white/70 dark:bg-[#1C1C1E]/50 border border-slate-200/60 dark:border-white/[0.08]/80 hover:border-rose-300 dark:hover:border-rose-900/50 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 flex flex-col items-center justify-center active:bg-rose-50 dark:active:bg-rose-950/40 transition-all shadow-xs cursor-pointer select-none"
-              title="Apagar dígito"
-            >
-              <Delete size={20} className="stroke-[2.2]" />
-              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Apagar</span>
-            </motion.button>
-          </div>
-
-          <div className="pt-2">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(8);
                 setViewMode('enter-pin');
               }}
-              className="px-4 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#1C1C1E] text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer shadow-2xs transition-colors"
+              className={`${textLinkCls} py-2`}
             >
               Cancelar
             </button>
@@ -1049,48 +853,39 @@ export const LockScreen: React.FC<LockScreenProps> = ({
       )}
 
       {viewMode === 'reset-success' && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-sm sm:max-w-md flex-1 flex flex-col items-center justify-center text-center space-y-6 py-6 my-auto z-10"
         >
-          <div className="relative">
-            <div className="w-22 h-22 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.5)] border-2 border-emerald-400">
-              <Check size={44} className="stroke-[3.5]" />
-            </div>
-            <div className="absolute inset-0 rounded-2xl border-2 border-emerald-400/40 scale-110 pointer-events-none animate-ping" />
+          <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+            <Check size={30} className="stroke-[3]" />
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              PIN Redefinido com Sucesso!
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto font-medium">
-              Seu novo código de segurança já está ativo e sua conta foi desbloqueada.
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">PIN redefinido</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xs mx-auto">
+              Seu novo PIN já está ativo e sua conta foi desbloqueada.
             </p>
           </div>
 
-          <div className="w-full pt-4">
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              id="btn-reset-success-ok"
-              onClick={() => {
-                triggerHaptic(15);
-                onUnlock();
-              }}
-              className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition-all cursor-pointer"
-            >
-              OK, Acessar Gastô
-            </motion.button>
-          </div>
+          <button
+            type="button"
+            id="btn-reset-success-ok"
+            onClick={() => {
+              triggerHaptic(15);
+              onUnlock();
+            }}
+            className="w-full py-3 px-6 bg-slate-900 dark:bg-white hover:opacity-90 text-white dark:text-slate-900 rounded-xl font-semibold text-sm transition-opacity cursor-pointer"
+          >
+            Acessar o Gastô
+          </button>
         </motion.div>
       )}
 
       <footer className="w-full max-w-sm sm:max-w-md text-center pt-2 pb-1 z-10">
-        <p className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-          <span>O PIN fica salvo só neste aparelho e bloqueia a abertura do app.</span>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+          O PIN fica salvo só neste aparelho e bloqueia a abertura do app.
         </p>
       </footer>
     </div>
