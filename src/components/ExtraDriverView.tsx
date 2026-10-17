@@ -112,20 +112,21 @@ export function ExtraDriverView({
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
   // Helper dates
-  const todayStr = useMemo(() => todayLocalISO(), []);
+  const todayStr = todayLocalISO();
   
+  // Semana = hoje e os 6 dias anteriores (7 dias no total).
   const sevenDaysAgoStr = useMemo(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 7);
+    d.setDate(d.getDate() - 6);
     return toLocalISODate(d);
-  }, []);
+  }, [todayStr]);
 
   // Filtered trips by period and app
   const filteredTrips = useMemo(() => {
     return trips.filter(t => {
       let matchesPeriod = true;
       if (period === 'hoje') matchesPeriod = t.date === todayStr;
-      else if (period === 'semana') matchesPeriod = t.date >= sevenDaysAgoStr;
+      else if (period === 'semana') matchesPeriod = t.date >= sevenDaysAgoStr && t.date <= todayStr;
       else if (period === 'mes') matchesPeriod = t.date.startsWith(currentMonth);
 
       let matchesApp = true;
@@ -145,7 +146,7 @@ export function ExtraDriverView({
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
       if (period === 'hoje') return e.date === todayStr;
-      if (period === 'semana') return e.date >= sevenDaysAgoStr;
+      if (period === 'semana') return e.date >= sevenDaysAgoStr && e.date <= todayStr;
       if (period === 'mes') return e.date.startsWith(currentMonth);
       return true;
     }).sort((a, b) => parseLocalISO(b.date).getTime() - parseLocalISO(a.date).getTime());
@@ -179,7 +180,7 @@ export function ExtraDriverView({
     // Calculate from current period trips
     trips.filter(t => {
       if (period === 'hoje') return t.date === todayStr;
-      if (period === 'semana') return t.date >= sevenDaysAgoStr;
+      if (period === 'semana') return t.date >= sevenDaysAgoStr && t.date <= todayStr;
       if (period === 'mes') return t.date.startsWith(currentMonth);
       return true;
     }).forEach(t => {
@@ -211,7 +212,7 @@ export function ExtraDriverView({
   const todayNet = todayGross - todayExp;
   const todayKm = todayTrips.reduce((acc, t) => acc + (t.distanceKm || 0), 0);
   const todayDailyGoal = goals?.daily || 300;
-  const todayGoalProgress = Math.min(100, Math.round((todayGross / (todayDailyGoal || 1)) * 100));
+  const todayGoalProgress = Math.max(0, Math.min(100, Math.round((todayNet / (todayDailyGoal || 1)) * 100)));
 
   // Combined timeline items for the clean feed (like the mockup)
   const feedItems = useMemo(() => {

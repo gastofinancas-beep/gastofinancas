@@ -36,11 +36,14 @@ import {
   IncomeItem, 
   ExpenseItem 
 } from '../types';
+import { currentMonthLocal } from '../utils/dateUtils';
 import { 
   formatCurrency, 
   formatMonthDisplay, 
   formatMonthShort, 
-  addMonths 
+  addMonths,
+  getMonthDiff,
+  getActiveIncomesForMonth
 } from '../utils/financeCalculations';
 import { AnimatedCounter } from './AnimatedCounter';
 import { TravelSimulatorModal } from './TravelSimulatorModal';
@@ -128,8 +131,7 @@ export function SavingsGoalsView({
 
   // Calculate total incomes for the current month
   const totalIncomeForMonth = useMemo(() => {
-    return incomes
-      .filter(inc => inc.type === 'fixa' || inc.monthYear === currentMonth)
+    return getActiveIncomesForMonth(incomes, currentMonth)
       .reduce((acc, inc) => acc + (inc.amount || 0), 0);
   }, [incomes, currentMonth]);
 
@@ -172,7 +174,8 @@ export function SavingsGoalsView({
 
   // Open Edit/Create Monthly Target Modal
   const handleOpenMonthlyTargetModal = () => {
-    setTargetInputVal(currentTarget ? String(currentTarget.targetExpenseLimit) : '');
+    // Formato brasileiro (1500,50): o parse abaixo trata o ponto como separador de milhar.
+    setTargetInputVal(currentTarget ? String(currentTarget.targetExpenseLimit).replace('.', ',') : '');
     setTargetNotesInput(currentTarget?.notes || '');
     setIsMonthlyTargetModalOpen(true);
   };
@@ -205,7 +208,8 @@ export function SavingsGoalsView({
   const handleConfirmDeposit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!depositGoal) return;
-    const addVal = parseFloat(depositAmount.replace(/\./g, '').replace(',', '.'));
+    // O campo é numérico (ponto decimal): não remover o ponto, senão 250.50 vira 25050.
+    const addVal = Number(depositAmount.replace(',', '.'));
     if (isNaN(addVal) || addVal <= 0) return;
 
     const updated: AccumulationGoal = {
@@ -225,7 +229,9 @@ export function SavingsGoalsView({
     const totalSaved = accumulationGoals.reduce((sum, g) => sum + g.currentAmount, 0);
     const totalMonthlyCommitment = accumulationGoals.reduce((sum, g) => {
       const remaining = Math.max(0, g.targetAmount - g.currentAmount);
-      return sum + (g.targetMonthsCount > 0 ? remaining / g.targetMonthsCount : 0);
+      const elapsed = g.startMonth ? Math.max(0, getMonthDiff(g.startMonth, currentMonthLocal())) : 0;
+      const left = Math.max(1, g.targetMonthsCount - elapsed);
+      return sum + (g.targetMonthsCount > 0 ? remaining / left : 0);
     }, 0);
 
     return {
@@ -639,7 +645,10 @@ export function SavingsGoalsView({
               const remainingVal = Math.max(0, goal.targetAmount - goal.currentAmount);
               
               // Automatic Monthly Calculation
-              const monthlyRequired = goal.targetMonthsCount > 0 ? remainingVal / goal.targetMonthsCount : 0;
+              // Considera só os meses que ainda faltam (a meta pode ter começado há meses).
+              const monthsElapsed = goal.startMonth ? Math.max(0, getMonthDiff(goal.startMonth, currentMonthLocal())) : 0;
+              const monthsLeft = Math.max(1, goal.targetMonthsCount - monthsElapsed);
+              const monthlyRequired = goal.targetMonthsCount > 0 ? remainingVal / monthsLeft : 0;
               const targetEndMonth = addMonths(goal.startMonth || currentMonth, goal.targetMonthsCount);
               const isCompleted = goal.currentAmount >= goal.targetAmount;
 
