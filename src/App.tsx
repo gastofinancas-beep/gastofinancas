@@ -3766,6 +3766,13 @@ function computeDataSignature(data: any): string {
     setFreelanceGoals(INITIAL_FREELANCE_GOALS);
     setWalletAccounts(INITIAL_WALLET_ACCOUNTS);
     setWalletTransactions(INITIAL_WALLET_TRANSACTIONS);
+    // Metas e planejamento mensal também são da pessoa: não podem sobrar para o próximo login
+    setMonthlyTargets(INITIAL_MONTHLY_TARGETS);
+    setAccumulationGoals(INITIAL_ACCUMULATION_GOALS);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.MONTHLY_TARGETS);
+      localStorage.removeItem(STORAGE_KEYS.ACCUMULATION_GOALS);
+    } catch {}
     setUserProfile({});
     setCurrentUser(null);
   };
@@ -3796,6 +3803,13 @@ function computeDataSignature(data: any): string {
     setFreelanceGoals(INITIAL_FREELANCE_GOALS);
     setWalletAccounts(INITIAL_WALLET_ACCOUNTS);
     setWalletTransactions(INITIAL_WALLET_TRANSACTIONS);
+    // Metas e planejamento mensal também são da pessoa: não podem sobrar para o próximo login
+    setMonthlyTargets(INITIAL_MONTHLY_TARGETS);
+    setAccumulationGoals(INITIAL_ACCUMULATION_GOALS);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.MONTHLY_TARGETS);
+      localStorage.removeItem(STORAGE_KEYS.ACCUMULATION_GOALS);
+    } catch {}
     setUserProfile({});
     setIsDeleteAccountModalOpen(false);
     setIsProfileModalOpen(false);
