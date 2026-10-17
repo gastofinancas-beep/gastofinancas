@@ -54,6 +54,7 @@ import { getDeviceBiometricLabel, unlockWithDeviceSensor, isWebAuthnAvailable } 
 import { hashPin } from '../utils/pinSecurity';
 import { 
   getNotificationPermission, 
+  getUnsupportedReason, 
   requestNotificationPermission, 
   subscribeToPushNotifications, enableBackgroundPush, disableBackgroundPush, 
   NotificationPermissionStatus 
@@ -953,7 +954,7 @@ export function ProfileModal({
                     : pushPermission === 'denied'
                     ? 'As notificações estão bloqueadas no navegador. Libere nas configurações do site.'
                     : pushPermission === 'unsupported'
-                    ? 'Este navegador não suporta notificações.'
+                    ? getUnsupportedReason()
                     : 'Receba lembretes de vencimento no celular, mesmo com o app fechado.'
                 }
               >

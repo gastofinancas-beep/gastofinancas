@@ -24,6 +24,32 @@ export function isPushSupported(): boolean {
 }
 
 /**
+ * Explains, in Portuguese, why this device can't receive notifications and what the person can do.
+ */
+export function getUnsupportedReason(): string {
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') {
+    return 'Este navegador não suporta notificações.';
+  }
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone =
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const isInAppBrowser = /FBAN|FBAV|Instagram|Line\/|WhatsApp|Messenger|TikTok|Snapchat|; wv\)/i.test(ua);
+
+  if (isInAppBrowser) {
+    return 'Você abriu o app dentro de outro aplicativo. Abra o endereço no Safari ou no Chrome para ativar os avisos.';
+  }
+  if (isIOS && !isStandalone) {
+    return 'No iPhone, os avisos só funcionam com o app instalado. Toque em Compartilhar, depois em "Adicionar à Tela de Início", e abra o Gastô? por lá.';
+  }
+  if (!window.isSecureContext) {
+    return 'Os avisos só funcionam em conexão segura (https).';
+  }
+  return 'Este navegador não suporta notificações. Tente o Chrome ou o Safari atualizados.';
+}
+
+/**
  * Returns the current notification permission status.
  */
 export function getNotificationPermission(): NotificationPermissionStatus {
