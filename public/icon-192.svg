@@ -1,43 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#F8FAFC" />
-      <stop offset="100%" stop-color="#EEF2F6" />
-    </linearGradient>
-    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10B981" />
-      <stop offset="100%" stop-color="#059669" />
-    </linearGradient>
-  </defs>
-  <!-- Squircle container -->
-  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
-  
-  <!-- "G" Main Dark Arc -->
-  <path
-    d="M 312 152
-       C 295 140, 276 134, 256 134
-       C 188.6 134, 134 188.6, 134 256
-       C 134 323.4, 188.6 378, 256 378
-       C 268 378, 280 376, 290 372
-       L 290 332
-       C 280 336, 268 338, 256 338
-       C 210.7 338, 174 301.3, 174 256
-       C 174 210.7, 210.7, 174, 256 174
-       C 270 174, 283 178, 294 186
-       Z"
-    fill="#181E24"
-  />
-  
-  <!-- "G" Middle Horizontal Bar -->
-  <rect x="256" y="202" width="70" height="34" rx="17" fill="#181E24" />
-
-  <!-- "G" Green Leaf Lower-Right Quadrant -->
-  <path
-    d="M 256 256
-       H 322
-       C 322 292.5, 292.5 322, 256 322
-       C 256 289.5, 256 256, 256 256
-       Z"
-    fill="url(#leafGrad)"
-  />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="192" height="192">
+  <rect width="512" height="512" rx="116" fill="#0B1220"/>
+  <path d="M 346 168 A 128 128 0 1 0 384 256" fill="none" stroke="#FFFFFF" stroke-width="62" stroke-linecap="round"/>
+  <path d="M 384 256 L 268 256" fill="none" stroke="#34D399" stroke-width="62" stroke-linecap="round"/>
 </svg>

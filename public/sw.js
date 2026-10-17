@@ -1,6 +1,6 @@
 // Service Worker com estratégia Cache-First para assets críticos e Network-First para app shell
-const STATIC_CACHE_NAME = 'gastofinance-static-v2';
-const ASSETS_CACHE_NAME = 'gastofinance-assets-v2';
+const STATIC_CACHE_NAME = 'gastofinance-static-v3';
+const ASSETS_CACHE_NAME = 'gastofinance-assets-v3';
 const CURRENT_CACHES = [STATIC_CACHE_NAME, ASSETS_CACHE_NAME];
 
 // Arquivos estruturais essenciais do app shell
