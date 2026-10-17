@@ -130,7 +130,7 @@ import {
   enableBackgroundPush,
   checkAndTriggerInvestmentYieldNotifications
 } from './utils/notifications';
-import { todayLocalISO } from './utils/dateUtils';
+import { todayLocalISO, currentMonthLocal } from './utils/dateUtils';
 
 const STORAGE_KEYS = {
   EXPENSES: 'financas_expenses_v2',
@@ -1456,15 +1456,22 @@ function computeDataSignature(data: any): string {
     };
   }, []);
 
-  // Synchronize Subscriptions with Expenses array so active subscriptions automatically reflect in total expenses, cards bills, and monthly summaries
+  // Synchronize Subscriptions with Expenses array so active subscriptions automatically reflect in total expenses, cards bills, and monthly summaries.
+  // Pausar, excluir ou mudar o valor/cartão encerra o gasto antigo no mês anterior (histórico preservado) em vez de apagá-lo.
   useEffect(() => {
     if (!dataLoadedFromCloud && currentUser) return;
 
+    const realMonth = currentMonthLocal();
+    const [ry, rm] = realMonth.split('-').map(Number);
+    const prevMonth = rm === 1 ? `${ry - 1}-12` : `${ry}-${String(rm - 1).padStart(2, '0')}`;
+    const [cy, cm] = currentMonth.split('-').map(Number);
+    const daysInViewedMonth = new Date(cy, cm, 0).getDate();
+
     setExpenses(prevExpenses => {
-      const activeSubExpenseMap = new Map<string, ExpenseItem>();
+      const liveMap = new Map<string, ExpenseItem>();
 
       subscriptions.forEach(sub => {
-        if (!sub.active) return; // Inactive/paused subscriptions do not generate active expenses
+        if (!sub.active) return; // Pausadas não geram gasto
 
         const expId = `exp-sub-${sub.id}`;
 
@@ -1475,15 +1482,15 @@ function computeDataSignature(data: any): string {
           monthlyAmount = Math.round((sub.amount * 4.33) * 100) / 100;
         }
 
-        const billingDayStr = String(sub.billingDay || 10).padStart(2, '0');
-        const expDate = `${currentMonth}-${billingDayStr}`;
+        const billingDay = Math.min(Math.max(sub.billingDay || 10, 1), daysInViewedMonth);
+        const expDate = `${currentMonth}-${String(billingDay).padStart(2, '0')}`;
         const targetCardId = sub.cardId || cards[0]?.id || '';
         const targetPersonId = sub.personId || people.find(p => p.isSelf)?.id || people[0]?.id || 'person-me';
 
         const existingExp = prevExpenses.find(e => e.id === expId);
-        const startMonthYear = sub.startDate ? sub.startDate.substring(0, 7) : (existingExp?.startMonthYear || currentMonth);
+        const startMonthYear = existingExp?.startMonthYear || (sub.startDate ? sub.startDate.substring(0, 7) : realMonth);
 
-        const subExpenseItem: ExpenseItem = {
+        liveMap.set(expId, {
           id: expId,
           description: sub.name,
           category: sub.category || 'outros',
@@ -1491,58 +1498,73 @@ function computeDataSignature(data: any): string {
           type: 'fixa',
           cardId: targetCardId,
           personId: targetPersonId,
-          startMonthYear: startMonthYear,
+          startMonthYear,
           date: expDate,
           notes: sub.notes || `Assinatura recorrente (dia ${sub.billingDay || 10})`,
-          paidByPerson: false,
-        };
-
-        activeSubExpenseMap.set(expId, subExpenseItem);
+          paidByPerson: existingExp?.paidByPerson ?? false,
+          paidDate: existingExp?.paidDate,
+        });
       });
 
       let hasChanges = false;
+      const archived: ExpenseItem[] = [];
 
-      // 1. Remove sub-expenses whose subscriptions are inactive or deleted
-      const updatedExpenses = prevExpenses.filter(e => {
-        if (e.id.startsWith('exp-sub-')) {
-          if (!activeSubExpenseMap.has(e.id)) {
-            hasChanges = true;
-            return false;
-          }
-        }
-        return true;
-      });
-
-      // 2. Update existing sub-expenses if properties changed
-      const finalExpenses = updatedExpenses.map(e => {
-        if (e.id.startsWith('exp-sub-') && activeSubExpenseMap.has(e.id)) {
-          const newItem = activeSubExpenseMap.get(e.id)!;
-          activeSubExpenseMap.delete(e.id); // mark as processed
-
-          if (
-            e.amount !== newItem.amount ||
-            e.description !== newItem.description ||
-            e.category !== newItem.category ||
-            e.cardId !== newItem.cardId ||
-            e.personId !== newItem.personId ||
-            e.date !== newItem.date ||
-            e.notes !== newItem.notes
-          ) {
-            hasChanges = true;
-            return newItem;
-          }
-        }
-        return e;
-      });
-
-      // 3. Add brand new subscription expenses
-      const newItems = Array.from(activeSubExpenseMap.values());
-      if (newItems.length > 0) {
+      // Encerra o gasto atual: some se começou neste mês, senão vira histórico até o mês passado.
+      const closeExpense = (e: ExpenseItem) => {
         hasChanges = true;
-        finalExpenses.unshift(...newItems);
+        if (e.startMonthYear >= realMonth) return;
+        archived.push({
+          ...e,
+          id: `exp-subh-${e.id.slice('exp-sub-'.length)}-${Date.now().toString(36)}`,
+          endMonthYear: prevMonth,
+        });
+      };
+
+      const kept: ExpenseItem[] = [];
+      for (const e of prevExpenses) {
+        if (!e.id.startsWith('exp-sub-')) {
+          kept.push(e);
+          continue;
+        }
+        const next = liveMap.get(e.id);
+        if (!next) {
+          closeExpense(e); // pausada ou excluída
+          continue;
+        }
+        liveMap.delete(e.id);
+
+        if (e.amount !== next.amount || (e.cardId && next.cardId && e.cardId !== next.cardId)) {
+          // Mudou valor ou cartão: o passado fica como estava, o novo vale a partir deste mês
+          if (e.startMonthYear < realMonth) {
+            closeExpense(e);
+            kept.push({ ...next, startMonthYear: realMonth, paidByPerson: false, paidDate: undefined });
+          } else {
+            hasChanges = true;
+            kept.push(next);
+          }
+          continue;
+        }
+
+        if (
+          e.description !== next.description ||
+          e.category !== next.category ||
+          e.personId !== next.personId ||
+          e.cardId !== next.cardId ||
+          e.date !== next.date ||
+          e.notes !== next.notes
+        ) {
+          hasChanges = true;
+          kept.push(next);
+        } else {
+          kept.push(e);
+        }
       }
 
-      return hasChanges ? finalExpenses : prevExpenses;
+      // Novas assinaturas ativas
+      const newItems = Array.from(liveMap.values());
+      if (newItems.length > 0) hasChanges = true;
+
+      return hasChanges ? [...newItems, ...kept, ...archived] : prevExpenses;
     });
   }, [subscriptions, cards, people, currentMonth, dataLoadedFromCloud, currentUser]);
 
@@ -3067,7 +3089,11 @@ function computeDataSignature(data: any): string {
   // Subscription Handlers
   const handleSaveSubscription = (subData: Partial<SubscriptionItem>) => {
     if (subData.id) {
-      setSubscriptions(prev => prev.map(s => s.id === subData.id ? { ...s, ...subData } as SubscriptionItem : s));
+      setSubscriptions(prev => prev.map(s => {
+        if (s.id !== subData.id) return s;
+        const resumed = !s.active && subData.active === true;
+        return { ...s, ...subData, ...(resumed ? { startDate: todayLocalISO() } : {}) } as SubscriptionItem;
+      }));
     } else {
       const newSub: SubscriptionItem = {
         id: `sub-${crypto.randomUUID()}`,
@@ -3083,6 +3109,7 @@ function computeDataSignature(data: any): string {
         autoRenew: subData.autoRenew ?? true,
         color: subData.color,
         notes: subData.notes,
+        startDate: todayLocalISO(),
       };
       setSubscriptions(prev => [newSub, ...prev]);
 
@@ -3106,7 +3133,7 @@ function computeDataSignature(data: any): string {
       isOpen: true,
       title: 'Excluir Assinatura',
       description: subToDelete 
-        ? `Deseja remover a assinatura "${subToDelete.name}" (${formatCurrency(subToDelete.amount)}/${subToDelete.billingCycle}) do seu monitoramento?`
+        ? `Deseja remover a assinatura "${subToDelete.name}" (${formatCurrency(subToDelete.amount)}/${subToDelete.billingCycle}) do seu monitoramento? Os meses anteriores continuam no histórico.`
         : 'Deseja remover esta assinatura?',
       confirmText: 'Excluir',
       cancelText: 'Cancelar',
@@ -3120,7 +3147,7 @@ function computeDataSignature(data: any): string {
   };
 
   const handleToggleSubscriptionActive = (id: string) => {
-    setSubscriptions(prev => prev.map(s => s.id === id ? { ...s, active: !s.active } : s));
+    setSubscriptions(prev => prev.map(s => s.id === id ? { ...s, active: !s.active, ...(!s.active ? { startDate: todayLocalISO() } : {}) } : s));
   };
 
   const handleQuickAddPreset = (preset: ServicePreset) => {
@@ -3140,6 +3167,7 @@ function computeDataSignature(data: any): string {
       autoRenew: true,
       color: preset.color,
       notes: preset.description,
+      startDate: todayLocalISO(),
     };
     setSubscriptions(prev => [newSub, ...prev]);
   };
