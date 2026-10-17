@@ -9,7 +9,7 @@ import {
   getDoc,
   setLogLevel
 } from 'firebase/firestore';
-import { getAnalytics, isSupported, logEvent, Analytics } from 'firebase/analytics';
+import type { Analytics } from 'firebase/analytics';
 import { DEFAULT_FIREBASE_CONFIG } from './firebaseConfig';
 
 const firebaseConfig = {
@@ -26,22 +26,33 @@ const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || DEFAULT
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Initialize Firebase Analytics safely if supported in browser environment
+// Analytics é carregado depois que o app já abriu, para não pesar no início
 export let analytics: Analytics | null = null;
-if (typeof window !== 'undefined') {
-  isSupported().then((supported) => {
-    if (supported && (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || DEFAULT_FIREBASE_CONFIG.measurementId)) {
-      analytics = getAnalytics(app);
-    }
-  }).catch(() => {
-    // Analytics not supported in this environment
-  });
+let logEventFn: ((a: Analytics, name: string, params?: Record<string, string | number | boolean>) => void) | null = null;
+if (typeof window !== 'undefined' && (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || DEFAULT_FIREBASE_CONFIG.measurementId)) {
+  const loadAnalytics = () => {
+    import('firebase/analytics')
+      .then(async (mod) => {
+        if (await mod.isSupported()) {
+          analytics = mod.getAnalytics(app);
+          logEventFn = mod.logEvent;
+        }
+      })
+      .catch(() => {
+        // Analytics not supported in this environment
+      });
+  };
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(loadAnalytics, { timeout: 4000 });
+  } else {
+    setTimeout(loadAnalytics, 2000);
+  }
 }
 
 export function trackEvent(eventName: string, eventParams?: Record<string, string | number | boolean>) {
   try {
-    if (analytics) {
-      logEvent(analytics, eventName, eventParams);
+    if (analytics && logEventFn) {
+      logEventFn(analytics, eventName, eventParams);
     }
   } catch {
     // Fail silently in development / restricted iframes

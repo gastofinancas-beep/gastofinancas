@@ -5,46 +5,57 @@ import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
 import { sanitizeForFirestore } from './lib/sanitizeFirestore';
 import { mergeFirstSync, LIST_FIELDS, OBJECT_FIELDS } from './lib/firstSyncMerge';
-import { AuthView, LocalAuthUser } from './components/AuthView';
+import type { LocalAuthUser } from './components/AuthView';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { GastoLogo } from './components/GastoLogo';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { AddExpenseModal } from './components/AddExpenseModal';
-import { AddIncomeModal } from './components/AddIncomeModal';
-import { AddPersonModal } from './components/AddPersonModal';
-import { AddCardModal } from './components/AddCardModal';
-import { AddInvestmentFolderModal } from './components/AddInvestmentFolderModal';
-import { AddInvestmentBoxModal } from './components/AddInvestmentBoxModal';
-import { DepositWithdrawModal } from './components/DepositWithdrawModal';
-import { ExportModal } from './components/ExportModal';
 import { migrateBoxHistoryIfNeeded } from './lib/investmentHistory';
 import { ConfirmDialogModal } from './components/ConfirmDialogModal';
-import { GuidedTour } from './components/GuidedTour';
 import { supportUrl } from './lib/support';
-import { ProfileModal } from './components/ProfileModal';
-import { AddFreelanceEntryModal } from './components/AddFreelanceEntryModal';
-import { AddFreelanceExpenseModal } from './components/AddFreelanceExpenseModal';
-import { FreelanceGoalsModal } from './components/FreelanceGoalsModal';
-import { AddSubscriptionModal } from './components/AddSubscriptionModal';
-import { AddWalletAccountModal } from './components/AddWalletAccountModal';
-import { AddWalletTransactionModal } from './components/AddWalletTransactionModal';
 import { TransactionSuccessModal, TransactionSuccessData } from './components/TransactionSuccessModal';
 import confetti from 'canvas-confetti';
 import { playSuccessChime } from './utils/soundEffects';
 import { OfflineBanner } from './components/OfflineBanner';
-import { LegalTermsModal } from './components/LegalTermsModal';
-import { DeleteAccountModal } from './components/DeleteAccountModal';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { triggerHaptic } from './utils/haptics';
 
 import { DashboardSkeleton } from './components/DashboardSkeleton';
 import { PullToRefresh } from './components/PullToRefresh';
-import { LockScreen } from './components/LockScreen';
-import { PinSetupModal } from './components/PinSetupModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Code-split dynamic views for instant initial load
+// Monta o modal (e baixa o código dele) só na primeira vez que for aberto
+function OnceOpen({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [seen, setSeen] = useState(open);
+  useEffect(() => {
+    if (open) setSeen(true);
+  }, [open]);
+  if (!seen && !open) return null;
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
+const AddExpenseModal = lazy(() => import('./components/AddExpenseModal').then(m => ({ default: m.AddExpenseModal })));
+const AddSubscriptionModal = lazy(() => import('./components/AddSubscriptionModal').then(m => ({ default: m.AddSubscriptionModal })));
+const AddIncomeModal = lazy(() => import('./components/AddIncomeModal').then(m => ({ default: m.AddIncomeModal })));
+const AddPersonModal = lazy(() => import('./components/AddPersonModal').then(m => ({ default: m.AddPersonModal })));
+const AddCardModal = lazy(() => import('./components/AddCardModal').then(m => ({ default: m.AddCardModal })));
+const AddInvestmentFolderModal = lazy(() => import('./components/AddInvestmentFolderModal').then(m => ({ default: m.AddInvestmentFolderModal })));
+const AddInvestmentBoxModal = lazy(() => import('./components/AddInvestmentBoxModal').then(m => ({ default: m.AddInvestmentBoxModal })));
+const DepositWithdrawModal = lazy(() => import('./components/DepositWithdrawModal').then(m => ({ default: m.DepositWithdrawModal })));
+const ExportModal = lazy(() => import('./components/ExportModal').then(m => ({ default: m.ExportModal })));
+const LegalTermsModal = lazy(() => import('./components/LegalTermsModal').then(m => ({ default: m.LegalTermsModal })));
+const GuidedTour = lazy(() => import('./components/GuidedTour').then(m => ({ default: m.GuidedTour })));
+const ProfileModal = lazy(() => import('./components/ProfileModal').then(m => ({ default: m.ProfileModal })));
+const DeleteAccountModal = lazy(() => import('./components/DeleteAccountModal').then(m => ({ default: m.DeleteAccountModal })));
+const AddWalletAccountModal = lazy(() => import('./components/AddWalletAccountModal').then(m => ({ default: m.AddWalletAccountModal })));
+const AddWalletTransactionModal = lazy(() => import('./components/AddWalletTransactionModal').then(m => ({ default: m.AddWalletTransactionModal })));
+const AddFreelanceEntryModal = lazy(() => import('./components/AddFreelanceEntryModal').then(m => ({ default: m.AddFreelanceEntryModal })));
+const AddFreelanceExpenseModal = lazy(() => import('./components/AddFreelanceExpenseModal').then(m => ({ default: m.AddFreelanceExpenseModal })));
+const FreelanceGoalsModal = lazy(() => import('./components/FreelanceGoalsModal').then(m => ({ default: m.FreelanceGoalsModal })));
+const LockScreen = lazy(() => import('./components/LockScreen').then(m => ({ default: m.LockScreen })));
+const PinSetupModal = lazy(() => import('./components/PinSetupModal').then(m => ({ default: m.PinSetupModal })));
+const AuthView = lazy(() => import('./components/AuthView').then(m => ({ default: m.AuthView })));
 const ChartsDashboard = lazy(() => import('./components/ChartsDashboard').then(m => ({ default: m.ChartsDashboard })));
 const PeopleSplitView = lazy(() => import('./components/PeopleSplitView').then(m => ({ default: m.PeopleSplitView })));
 const CardsView = lazy(() => import('./components/CardsView').then(m => ({ default: m.CardsView })));
@@ -3747,12 +3758,17 @@ function computeDataSignature(data: any): string {
 
   // Show Login/Signup Screen if not authenticated
   if (!currentUser) {
-    return <AuthView onLocalLogin={handleLocalLogin} isDarkMode={isDarkMode} />;
+    return (
+      <Suspense fallback={<div className="min-h-screen w-full bg-[#F7F8FA] dark:bg-[#09090B]" />}>
+        <AuthView onLocalLogin={handleLocalLogin} isDarkMode={isDarkMode} />
+      </Suspense>
+    );
   }
 
   return (
     <div className={`min-h-screen w-full max-w-full overflow-x-clip ${isDarkMode ? 'dark bg-[#000000] text-slate-100' : 'bg-[#F7F8FA] text-slate-900'} font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200`}>
       {isLocked && (
+        <Suspense fallback={null}>
         <LockScreen 
           userProfile={userProfile} 
           userEmail={currentUser.isAnonymous ? undefined : currentUser.email || userProfile.email}
@@ -3761,14 +3777,17 @@ function computeDataSignature(data: any): string {
           onSignOut={handleSignOut}
           onSaveProfile={(profile) => handleSaveProfile(profile, false)}
         />
+        </Suspense>
       )}
       {isPinSetupOpen && (
+        <Suspense fallback={null}>
         <PinSetupModal
           isOpen={isPinSetupOpen}
           userEmail={currentUser.isAnonymous ? undefined : currentUser.email || userProfile.email}
           onComplete={handleCompletePinSetup}
           onSkip={handleSkipPinSetup}
         />
+        </Suspense>
       )}
       {/* Main app chrome and content (hidden while full-screen PIN Setup or Lock Screen is active) */}
       {!isLocked && !isPinSetupOpen && (
@@ -4137,126 +4156,146 @@ function computeDataSignature(data: any): string {
       )}
 
       {/* Modals */}
+      <OnceOpen open={isAddExpenseOpen}>
       <AddExpenseModal
-        isOpen={isAddExpenseOpen}
-        onClose={() => {
-          setIsAddExpenseOpen(false);
-          setEditingExpense(null);
-        }}
-        onSave={handleSaveExpense}
-        editingExpense={editingExpense}
-        cards={cards}
-        people={people}
-        currentMonth={currentMonth}
-        defaultPersonId={defaultPersonId}
-        defaultCardId={defaultCardId}
-      />
+          isOpen={isAddExpenseOpen}
+          onClose={() => {
+            setIsAddExpenseOpen(false);
+            setEditingExpense(null);
+          }}
+          onSave={handleSaveExpense}
+          editingExpense={editingExpense}
+          cards={cards}
+          people={people}
+          currentMonth={currentMonth}
+          defaultPersonId={defaultPersonId}
+          defaultCardId={defaultCardId}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddSubscriptionOpen}>
       <AddSubscriptionModal
-        isOpen={isAddSubscriptionOpen}
-        onClose={() => {
-          setIsAddSubscriptionOpen(false);
-          setEditingSubscription(null);
-        }}
-        onSave={handleSaveSubscription}
-        editingSubscription={editingSubscription}
-        cards={cards}
-        people={people}
-      />
+          isOpen={isAddSubscriptionOpen}
+          onClose={() => {
+            setIsAddSubscriptionOpen(false);
+            setEditingSubscription(null);
+          }}
+          onSave={handleSaveSubscription}
+          editingSubscription={editingSubscription}
+          cards={cards}
+          people={people}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddIncomeOpen}>
       <AddIncomeModal
-        isOpen={isAddIncomeOpen}
-        onClose={() => {
-          setIsAddIncomeOpen(false);
-          setEditingIncome(null);
-        }}
-        onSave={handleSaveIncome}
-        editingIncome={editingIncome}
-        currentMonth={currentMonth}
-        accounts={walletAccounts}
-      />
+          isOpen={isAddIncomeOpen}
+          onClose={() => {
+            setIsAddIncomeOpen(false);
+            setEditingIncome(null);
+          }}
+          onSave={handleSaveIncome}
+          editingIncome={editingIncome}
+          currentMonth={currentMonth}
+          accounts={walletAccounts}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddPersonOpen}>
       <AddPersonModal
-        isOpen={isAddPersonOpen}
-        onClose={() => {
-          setIsAddPersonOpen(false);
-          setEditingPerson(null);
-        }}
-        onSave={handleSavePerson}
-        editingPerson={editingPerson}
-      />
+          isOpen={isAddPersonOpen}
+          onClose={() => {
+            setIsAddPersonOpen(false);
+            setEditingPerson(null);
+          }}
+          onSave={handleSavePerson}
+          editingPerson={editingPerson}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddCardOpen}>
       <AddCardModal
-        isOpen={isAddCardOpen}
-        onClose={() => {
-          setIsAddCardOpen(false);
-          setEditingCard(null);
-        }}
-        onSave={handleSaveCard}
-        editingCard={editingCard}
-        onDelete={handleDeleteCard}
-      />
+          isOpen={isAddCardOpen}
+          onClose={() => {
+            setIsAddCardOpen(false);
+            setEditingCard(null);
+          }}
+          onSave={handleSaveCard}
+          editingCard={editingCard}
+          onDelete={handleDeleteCard}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddFolderOpen}>
       <AddInvestmentFolderModal
-        isOpen={isAddFolderOpen}
-        onClose={() => {
-          setIsAddFolderOpen(false);
-          setEditingFolder(null);
-        }}
-        onSaveFolder={handleSaveFolder}
-        folderToEdit={editingFolder}
-      />
+          isOpen={isAddFolderOpen}
+          onClose={() => {
+            setIsAddFolderOpen(false);
+            setEditingFolder(null);
+          }}
+          onSaveFolder={handleSaveFolder}
+          folderToEdit={editingFolder}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddBoxOpen}>
       <AddInvestmentBoxModal
-        isOpen={isAddBoxOpen}
-        onClose={() => {
-          setIsAddBoxOpen(false);
-          setEditingBox(null);
-          setDefaultFolderIdForBox(undefined);
-        }}
-        onSaveBox={handleSaveBox}
-        folders={folders}
-        boxToEdit={editingBox}
-        defaultFolderId={defaultFolderIdForBox}
-      />
+          isOpen={isAddBoxOpen}
+          onClose={() => {
+            setIsAddBoxOpen(false);
+            setEditingBox(null);
+            setDefaultFolderIdForBox(undefined);
+          }}
+          onSaveBox={handleSaveBox}
+          folders={folders}
+          boxToEdit={editingBox}
+          defaultFolderId={defaultFolderIdForBox}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isDepositWithdrawOpen}>
       <DepositWithdrawModal
-        isOpen={isDepositWithdrawOpen}
-        onClose={() => {
-          setIsDepositWithdrawOpen(false);
-          setSelectedBoxForDeposit(null);
-        }}
-        box={selectedBoxForDeposit}
-        mode={depositModalType}
-        onConfirm={handleDepositWithdraw}
-        userId={currentUser?.uid ?? ''}
-      />
+          isOpen={isDepositWithdrawOpen}
+          onClose={() => {
+            setIsDepositWithdrawOpen(false);
+            setSelectedBoxForDeposit(null);
+          }}
+          box={selectedBoxForDeposit}
+          mode={depositModalType}
+          onConfirm={handleDepositWithdraw}
+          userId={currentUser?.uid ?? ''}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isExportOpen}>
       <ExportModal
-        isOpen={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
-        expenses={expenses}
-        activeExpenses={activeExpenses}
-        cards={cards}
-        people={people}
-        currentMonth={currentMonth}
-        summary={summary}
-        walletAccounts={walletAccounts}
-        walletTransactions={walletTransactions}
-        boxes={boxes}
-        folders={folders}
-        driverTrips={driverTrips}
-        driverExpenses={driverExpenses}
-        freelanceEntries={freelanceEntries}
-        freelanceExpenses={freelanceExpenses}
-        subscriptions={subscriptions}
-      />
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          expenses={expenses}
+          activeExpenses={activeExpenses}
+          cards={cards}
+          people={people}
+          currentMonth={currentMonth}
+          summary={summary}
+          walletAccounts={walletAccounts}
+          walletTransactions={walletTransactions}
+          boxes={boxes}
+          folders={folders}
+          driverTrips={driverTrips}
+          driverExpenses={driverExpenses}
+          freelanceEntries={freelanceEntries}
+          freelanceExpenses={freelanceExpenses}
+          subscriptions={subscriptions}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isLegalTermsOpen}>
       <LegalTermsModal
-        isOpen={isLegalTermsOpen}
-        onClose={() => setIsLegalTermsOpen(false)}
-        onOpenDeleteAccount={() => setIsDeleteAccountModalOpen(true)}
-      />
+          isOpen={isLegalTermsOpen}
+          onClose={() => setIsLegalTermsOpen(false)}
+          onOpenDeleteAccount={() => setIsDeleteAccountModalOpen(true)}
+        />
+      </OnceOpen>
 
       <ConfirmDialogModal
         isOpen={confirmDialog.isOpen}
@@ -4271,104 +4310,120 @@ function computeDataSignature(data: any): string {
       />
 
       {/* Tutorial guiado dentro do app real */}
+      <OnceOpen open={isTutorialOpen}>
       <GuidedTour
-        isOpen={isTutorialOpen}
-        onClose={() => setIsTutorialOpen(false)}
-        hasAccount={walletAccounts.length > 0}
-        isAccountModalOpen={isAddWalletAccountOpen}
-        goToTab={(tab) => setActiveTab(tab)}
-        paused={isProfileModalOpen}
-      />
+          isOpen={isTutorialOpen}
+          onClose={() => setIsTutorialOpen(false)}
+          hasAccount={walletAccounts.length > 0}
+          isAccountModalOpen={isAddWalletAccountOpen}
+          goToTab={(tab) => setActiveTab(tab)}
+          paused={isProfileModalOpen}
+        />
+      </OnceOpen>
 
       {/* User Profile Settings Modal */}
+      <OnceOpen open={isProfileModalOpen}>
       <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        userEmail={currentUser.isAnonymous ? 'Visitante' : currentUser.email}
-        currentUser={currentUser}
-        profile={userProfile}
-        people={people}
-        cards={cards}
-        expenses={expenses}
-        boxes={boxes}
-        paidBills={paidBills}
-        currentMonth={currentMonth}
-        onSaveProfile={handleSaveProfile}
-        onSignOut={handleSignOut}
-        onOpenLegalTerms={() => setIsLegalTermsOpen(true)}
-        onOpenPinSetup={() => setIsPinSetupOpen(true)}
-        onOpenDeleteAccount={() => setIsDeleteAccountModalOpen(true)}
-        onOpenExport={() => setIsExportOpen(true)}
-      />
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          userEmail={currentUser.isAnonymous ? 'Visitante' : currentUser.email}
+          currentUser={currentUser}
+          profile={userProfile}
+          people={people}
+          cards={cards}
+          expenses={expenses}
+          boxes={boxes}
+          paidBills={paidBills}
+          currentMonth={currentMonth}
+          onSaveProfile={handleSaveProfile}
+          onSignOut={handleSignOut}
+          onOpenLegalTerms={() => setIsLegalTermsOpen(true)}
+          onOpenPinSetup={() => setIsPinSetupOpen(true)}
+          onOpenDeleteAccount={() => setIsDeleteAccountModalOpen(true)}
+          onOpenExport={() => setIsExportOpen(true)}
+        />
+      </OnceOpen>
 
       {/* LGPD Delete Account and Data Modal */}
+      <OnceOpen open={isDeleteAccountModalOpen}>
       <DeleteAccountModal
-        isOpen={isDeleteAccountModalOpen}
-        onClose={() => setIsDeleteAccountModalOpen(false)}
-        currentUser={currentUser}
-        userEmail={currentUser.isAnonymous ? 'Visitante' : currentUser.email}
-        boxes={boxes}
-        onOpenExport={() => setIsExportOpen(true)}
-        onAccountDeleted={handleAccountDeleted}
-      />
+          isOpen={isDeleteAccountModalOpen}
+          onClose={() => setIsDeleteAccountModalOpen(false)}
+          currentUser={currentUser}
+          userEmail={currentUser.isAnonymous ? 'Visitante' : currentUser.email}
+          boxes={boxes}
+          onOpenExport={() => setIsExportOpen(true)}
+          onAccountDeleted={handleAccountDeleted}
+        />
+      </OnceOpen>
 
       {/* Wallet Modals */}
+      <OnceOpen open={isAddWalletAccountOpen}>
       <AddWalletAccountModal
-        isOpen={isAddWalletAccountOpen}
-        onClose={() => {
-          setIsAddWalletAccountOpen(false);
-          setEditingWalletAccount(null);
-        }}
-        onSave={handleSaveWalletAccount}
-        onDelete={handleDeleteWalletAccount}
-        editingAccount={editingWalletAccount}
-        testDraft={isTutorialOpen && walletAccounts.length === 0}
-      />
+          isOpen={isAddWalletAccountOpen}
+          onClose={() => {
+            setIsAddWalletAccountOpen(false);
+            setEditingWalletAccount(null);
+          }}
+          onSave={handleSaveWalletAccount}
+          onDelete={handleDeleteWalletAccount}
+          editingAccount={editingWalletAccount}
+          testDraft={isTutorialOpen && walletAccounts.length === 0}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddWalletTransactionOpen}>
       <AddWalletTransactionModal
-        isOpen={isAddWalletTransactionOpen}
-        onClose={() => {
-          setIsAddWalletTransactionOpen(false);
-          setWalletPreselectedAccountId(undefined);
-        }}
-        accounts={walletAccounts}
-        onAddTransaction={handleAddWalletTransaction}
-        onAdjustBalance={handleAdjustWalletBalance}
-        preselectedAccountId={walletPreselectedAccountId}
-        initialMode={walletTransactionMode}
-      />
+          isOpen={isAddWalletTransactionOpen}
+          onClose={() => {
+            setIsAddWalletTransactionOpen(false);
+            setWalletPreselectedAccountId(undefined);
+          }}
+          accounts={walletAccounts}
+          onAddTransaction={handleAddWalletTransaction}
+          onAdjustBalance={handleAdjustWalletBalance}
+          preselectedAccountId={walletPreselectedAccountId}
+          initialMode={walletTransactionMode}
+        />
+      </OnceOpen>
 
       {/* Freelance Modals */}
+      <OnceOpen open={isAddFreelanceEntryOpen}>
       <AddFreelanceEntryModal
-        isOpen={isAddFreelanceEntryOpen}
-        onClose={() => {
-          setIsAddFreelanceEntryOpen(false);
-          setEditingFreelanceEntry(null);
-        }}
-        onSave={handleSaveFreelanceEntry}
-        editingEntry={editingFreelanceEntry}
-        currentMonth={currentMonth}
-        accounts={walletAccounts}
-      />
+          isOpen={isAddFreelanceEntryOpen}
+          onClose={() => {
+            setIsAddFreelanceEntryOpen(false);
+            setEditingFreelanceEntry(null);
+          }}
+          onSave={handleSaveFreelanceEntry}
+          editingEntry={editingFreelanceEntry}
+          currentMonth={currentMonth}
+          accounts={walletAccounts}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isAddFreelanceExpenseOpen}>
       <AddFreelanceExpenseModal
-        isOpen={isAddFreelanceExpenseOpen}
-        onClose={() => {
-          setIsAddFreelanceExpenseOpen(false);
-          setEditingFreelanceExpense(null);
-        }}
-        onSave={handleSaveFreelanceExpense}
-        editingExpense={editingFreelanceExpense}
-        currentMonth={currentMonth}
-        accounts={walletAccounts}
-      />
+          isOpen={isAddFreelanceExpenseOpen}
+          onClose={() => {
+            setIsAddFreelanceExpenseOpen(false);
+            setEditingFreelanceExpense(null);
+          }}
+          onSave={handleSaveFreelanceExpense}
+          editingExpense={editingFreelanceExpense}
+          currentMonth={currentMonth}
+          accounts={walletAccounts}
+        />
+      </OnceOpen>
 
+      <OnceOpen open={isFreelanceGoalsOpen}>
       <FreelanceGoalsModal
-        isOpen={isFreelanceGoalsOpen}
-        onClose={() => setIsFreelanceGoalsOpen(false)}
-        goals={freelanceGoals}
-        onSave={handleSaveFreelanceGoals}
-      />
+          isOpen={isFreelanceGoalsOpen}
+          onClose={() => setIsFreelanceGoalsOpen(false)}
+          goals={freelanceGoals}
+          onSave={handleSaveFreelanceGoals}
+        />
+      </OnceOpen>
 
       {/* Transaction Confirmation Receipt Modal */}
       <TransactionSuccessModal
