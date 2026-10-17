@@ -70,7 +70,7 @@ export function getActiveExpensesForMonth(expenses: ExpenseItem[], monthYear: st
   for (const exp of expenses) {
     if (exp.type === 'fixa') {
       const diff = getMonthDiff(exp.startMonthYear, monthYear);
-      if (diff >= 0) {
+      if (diff >= 0 && (!exp.endMonthYear || monthYear <= exp.endMonthYear)) {
         results.push({ expense: exp });
       }
     } else if (exp.type === 'unica') {

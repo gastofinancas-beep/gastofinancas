@@ -28,6 +28,7 @@ export interface ExpenseItem {
   totalInstallments?: number;
   currentInstallment?: number;
   startMonthYear: string; // e.g. "2026-08"
+  endMonthYear?: string; // último mês cobrado (gastos fixos encerrados, ex.: assinatura pausada)
   date: string;
   notes?: string;
   paidByPerson?: boolean;
