@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Check } from 'lucide-react';
 import { AccumulationGoal, ExpenseItem, GoalCategory, IncomeItem } from '../types';
-import { formatCurrency, formatMonthDisplay } from '../utils/financeCalculations';
+import { addMonths, formatCurrency, formatMonthDisplay } from '../utils/financeCalculations';
 import { planDream } from '../utils/dreamPlanner';
 
 const DREAMS: {
@@ -22,6 +22,8 @@ const DREAMS: {
 ];
 
 const INSTALLMENT_OPTIONS = [3, 6, 12, 24];
+const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const DEFAULT_MONTHS_AHEAD = 12;
 
 interface TravelSimulatorModalProps {
   isOpen: boolean;
@@ -58,6 +60,7 @@ export function TravelSimulatorModal({
   onSaveGoal,
   isBalanceVisible = true,
   initialTargetAmount = 3000,
+  initialDesiredMonth,
   initialGoalTitle,
   initialCategory = 'viagem',
   initialGoalId,
@@ -69,6 +72,7 @@ export function TravelSimulatorModal({
   const [paymentMethod, setPaymentMethod] = useState<'a_vista' | 'parcelado'>('a_vista');
   const [installments, setInstallments] = useState<number>(12);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
+  const [targetMonth, setTargetMonth] = useState<string>(initialDesiredMonth || addMonths(currentMonth, DEFAULT_MONTHS_AHEAD));
 
   // Reabre sempre com os dados da meta/sonho escolhido
   useEffect(() => {
@@ -78,6 +82,7 @@ export function TravelSimulatorModal({
     setGoalTitle(initialGoalTitle || d.defaultTitle);
     setCost(initialTargetAmount);
     setPaymentMethod('a_vista');
+    setTargetMonth(initialDesiredMonth || addMonths(currentMonth, DEFAULT_MONTHS_AHEAD));
     setIsSavedSuccess(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -90,8 +95,8 @@ export function TravelSimulatorModal({
   };
 
   const plan = useMemo(
-    () => planDream({ currentMonth, targetCost: cost, incomes, expenses, paymentMethod, installments }),
-    [currentMonth, cost, incomes, expenses, paymentMethod, installments]
+    () => planDream({ currentMonth, targetCost: cost, incomes, expenses, paymentMethod, installments, targetMonth }),
+    [currentMonth, cost, incomes, expenses, paymentMethod, installments, targetMonth]
   );
   const { averages } = plan;
   const hasData = averages.monthsUsed > 0;
@@ -102,6 +107,16 @@ export function TravelSimulatorModal({
     const n = Math.ceil(cost / averages.surplus);
     return n >= 2 && n <= 60 ? n : null;
   }, [averages.surplus, cost]);
+
+  const [curYear, curMonthNum] = currentMonth.split('-').map(Number);
+  const [targetYear, targetMonthNum] = targetMonth.split('-').map(Number);
+  const yearOptions = Array.from({ length: 6 }, (_, i) => curYear + i);
+  const setTarget = (y: number, m: number) => {
+    let key = `${y}-${String(m).padStart(2, '0')}`;
+    if (key < currentMonth) key = currentMonth;
+    if (key > addMonths(currentMonth, 60)) key = addMonths(currentMonth, 60);
+    setTargetMonth(key);
+  };
 
   const money = (v: number) => (isBalanceVisible ? formatCurrency(v) : 'R$ ••••');
 
@@ -152,6 +167,44 @@ export function TravelSimulatorModal({
     detail = `${installments}x de ${money(plan.installmentValue)} usa ${Math.round(share * 100)}% da sua sobra. ${when}`;
   }
 
+  // Resultado para o mês escolhido
+  const target = plan.target;
+  let tTone: 'ok' | 'warn' | 'bad' = 'ok';
+  let tHead = '';
+  let tDetail = '';
+  if (target && hasData && cost > 0) {
+    const when = formatMonthDisplay(target.monthKey);
+    if (paymentMethod === 'a_vista') {
+      if (target.feasible) {
+        tHead = `Dá certo em ${when}`;
+        tDetail = `Guardando a sobra de cada mês, você terá ${money(target.saved)} até lá. Depois da compra, a sua sobra mensal segue em ${money(target.surplusBefore)}.`;
+      } else {
+        tTone = 'bad';
+        tHead = `Não fecha até ${when}`;
+        tDetail = `Até lá você junta ${money(target.saved)} e faltam ${money(target.shortfall)}. Para chegar no valor seria preciso guardar ${money(target.requiredPerMonth)} por mês.${
+          plan.bestMonthKey ? ` O primeiro mês que fecha é ${formatMonthDisplay(plan.bestMonthKey)}.` : ' Com a média atual, passa de 5 anos.'
+        }`;
+      }
+    } else if (target.surplusAfter <= 0) {
+      tTone = 'bad';
+      tHead = `Você ficaria no vermelho em ${when}`;
+      tDetail = `A sobra mensal cairia de ${money(target.surplusBefore)} para ${money(target.surplusAfter)} durante as parcelas.${
+        plan.bestMonthKey && plan.bestMonthKey !== target.monthKey ? ` Começar em ${formatMonthDisplay(plan.bestMonthKey)} cabe no orçamento.` : ''
+      }`;
+    } else {
+      const worse = target.surplusAfter < target.surplusBefore * 0.3;
+      tTone = worse ? 'warn' : 'ok';
+      tHead = worse ? `Cabe em ${when}, mas fica apertado` : `Cabe em ${when}`;
+      tDetail = `A sobra mensal vai de ${money(target.surplusBefore)} para ${money(target.surplusAfter)} enquanto durarem as parcelas.`;
+    }
+  }
+  const tToneText =
+    tTone === 'ok'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : tTone === 'warn'
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-rose-600 dark:text-rose-400';
+
   const toneText =
     tone === 'ok'
       ? 'text-emerald-600 dark:text-emerald-400'
@@ -162,7 +215,7 @@ export function TravelSimulatorModal({
   const handleSaveAsGoal = () => {
     if (!onSaveGoal) return;
     const existing = initialGoalId ? existingGoals.find((g) => g.id === initialGoalId) : undefined;
-    const monthsAhead = plan.monthsToAfford ?? 12;
+    const monthsAhead = target?.monthsAhead ?? plan.monthsToAfford ?? 12;
 
     const goalToSave: AccumulationGoal = {
       id: existing ? existing.id : `goal-dream-${Date.now()}`,
@@ -174,8 +227,8 @@ export function TravelSimulatorModal({
       category: dream.id,
       color: dream.color,
       icon: existing?.icon || dream.id,
-      notes: plan.bestMonthKey
-        ? `Simulação: ${formatMonthDisplay(plan.bestMonthKey)}.`
+      notes: target
+        ? `Simulação: realizar em ${formatMonthDisplay(target.monthKey)}${target.feasible ? '' : ' (não fecha com a média atual)'}.`
         : 'Simulação: ainda não cabe na média atual.',
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -331,6 +384,44 @@ export function TravelSimulatorModal({
               )}
             </div>
 
+            {/* Quando */}
+            <div className="space-y-2">
+              <span className={labelCls}>Em que mês quer realizar</span>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={targetMonthNum}
+                  onChange={(e) => setTarget(targetYear, Number(e.target.value))}
+                  className={fieldCls}
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={i + 1}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={targetYear}
+                  onChange={(e) => setTarget(Number(e.target.value), targetMonthNum)}
+                  className={fieldCls}
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {plan.bestMonthKey && plan.bestMonthKey !== targetMonth && hasData && cost > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTargetMonth(plan.bestMonthKey!)}
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400"
+                >
+                  Usar o melhor mês: {formatMonthDisplay(plan.bestMonthKey)}
+                </button>
+              )}
+            </div>
+
             {/* Média */}
             <div className="space-y-2">
               <div className="flex items-baseline justify-between">
@@ -369,10 +460,18 @@ export function TravelSimulatorModal({
               </p>
             )}
 
-            {/* Resultado */}
-            <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
-              <p className={`text-base font-bold tracking-tight ${toneText}`}>{headline}</p>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{detail}</p>
+            {/* Resultado para o mês escolhido */}
+            {target && hasData && cost > 0 && (
+              <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
+                <p className={`text-base font-bold tracking-tight ${tToneText}`}>{tHead}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{tDetail}</p>
+              </div>
+            )}
+
+            {/* Melhor mês */}
+            <div className="space-y-1 px-1">
+              <p className={`text-sm font-semibold ${toneText}`}>{headline}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{detail}</p>
             </div>
 
             {/* Quando junta (somente à vista) */}

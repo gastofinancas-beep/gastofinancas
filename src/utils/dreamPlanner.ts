@@ -21,6 +21,23 @@ export interface DreamPlan {
   // Maior valor de parcelas/faturas já lançadas nos próximos meses que ainda pesa na sobra
   upcomingInstallmentsNow: number;
   milestones: { percent: number; monthKey: string | null; monthsAhead: number | null }[];
+  target: DreamTarget | null;
+}
+
+/** Como fica a vida financeira se o sonho for realizado no mês escolhido. */
+export interface DreamTarget {
+  monthKey: string;
+  monthsAhead: number;
+  // Sobra mensal prevista no mês escolhido, antes de realizar o sonho
+  surplusBefore: number;
+  // Sobra mensal prevista depois (parcelado: pior mês durante as parcelas; à vista: igual à anterior)
+  surplusAfter: number;
+  // À vista: quanto estará guardado até lá e quanto falta (ou sobra) para o valor total
+  saved: number;
+  shortfall: number;
+  requiredPerMonth: number;
+  // Cabe no mês escolhido?
+  feasible: boolean;
 }
 
 const MAX_HORIZON = 60;
@@ -68,8 +85,9 @@ export function planDream(options: {
   expenses: ExpenseItem[];
   paymentMethod: 'a_vista' | 'parcelado';
   installments: number;
+  targetMonth?: string;
 }): DreamPlan {
-  const { currentMonth, targetCost, incomes, expenses, paymentMethod, installments } = options;
+  const { currentMonth, targetCost, incomes, expenses, paymentMethod, installments, targetMonth } = options;
   const averages = calculateAverages(currentMonth, incomes, expenses);
   const cost = Math.max(0, targetCost);
   const installmentsCount = paymentMethod === 'parcelado' ? Math.max(1, installments) : 1;
@@ -119,8 +137,37 @@ export function planDream(options: {
     installmentShareOfSurplus = startSurplus > 0 ? installmentValue / startSurplus : null;
   }
 
+  let target: DreamTarget | null = null;
+  if (targetMonth) {
+    const [cy, cm] = currentMonth.split('-').map(Number);
+    const [ty, tm] = targetMonth.split('-').map(Number);
+    const k = Math.min(MAX_HORIZON, Math.max(0, (ty - cy) * 12 + (tm - cm)));
+    const surplusBefore = surplusByMonth[k];
+    let saved = 0;
+    for (let j = 0; j < Math.max(k, 1); j++) saved += Math.max(0, surplusByMonth[j]);
+    let surplusAfter = surplusBefore;
+    let feasible: boolean;
+    if (paymentMethod === 'a_vista') {
+      feasible = saved >= cost;
+    } else {
+      surplusAfter = Math.min(...surplusByMonth.slice(k, k + installmentsCount)) - installmentValue;
+      feasible = surplusAfter > 0;
+    }
+    target = {
+      monthKey: addMonths(currentMonth, k),
+      monthsAhead: k,
+      surplusBefore,
+      surplusAfter,
+      saved,
+      shortfall: Math.max(0, cost - saved),
+      requiredPerMonth: cost / Math.max(k, 1),
+      feasible,
+    };
+  }
+
   return {
     averages,
+    target,
     installmentValue,
     installmentsCount,
     monthsToAfford,
