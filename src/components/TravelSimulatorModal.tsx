@@ -120,95 +120,56 @@ export function TravelSimulatorModal({
 
   const money = (v: number) => (isBalanceVisible ? formatCurrency(v) : 'R$ ••••');
 
-  // Veredito
-  let tone: 'ok' | 'warn' | 'bad' = 'ok';
-  let headline = '';
-  let detail = '';
-
-  if (!hasData) {
-    tone = 'warn';
-    headline = 'Ainda sem dados para calcular';
-    detail = 'Cadastre suas receitas e gastos para o app descobrir a sua média.';
-  } else if (plan.monthsToAfford === null && averages.surplus <= 0) {
-    tone = 'bad';
-    headline = 'Hoje não sobra dinheiro no mês';
-    detail = `Você gasta em média ${money(Math.abs(averages.surplus))} a mais do que recebe. Reduzir esse valor é o primeiro passo para realizar o sonho.`;
-  } else if (paymentMethod === 'a_vista') {
-    if (plan.monthsToAfford === null) {
-      tone = 'bad';
-      headline = 'Vai levar mais de 5 anos';
-      detail = `Com a sobra de ${money(averages.surplus)} por mês, o valor é alto demais. Tente um valor menor ou parcelar.`;
-    } else if (plan.monthsToAfford === 0) {
-      tone = 'ok';
-      headline = 'Você já pode realizar';
-      detail = 'A sobra de um mês já cobre o valor.';
-    } else {
-      tone = 'ok';
-      headline = `Melhor momento: ${formatMonthDisplay(plan.bestMonthKey!)}`;
-      detail = `Guardando o que sobra a cada mês, já descontando as faturas e parcelas que você tem lançadas, você junta ${money(cost)} ${monthsLabel(plan.monthsToAfford)}.`;
-    }
-  } else if (plan.monthsToAfford === null) {
-    tone = 'bad';
-    headline = 'A parcela não cabe no orçamento';
-    detail = `${installments}x de ${money(plan.installmentValue)} é mais do que sobra por mês, mesmo depois que suas faturas e parcelas atuais terminarem.${suggestedInstallments ? ` Dividindo em ${suggestedInstallments}x ou mais, caberia.` : ''}`;
-  } else {
-    const share = plan.installmentShareOfSurplus ?? 1;
-    const when =
-      plan.monthsToAfford === 0
-        ? 'Pode começar agora.'
-        : `Melhor começar em ${formatMonthDisplay(plan.bestMonthKey!)}, quando suas faturas e parcelas atuais aliviarem.`;
-    if (share <= 0.7) {
-      tone = 'ok';
-      headline = 'Cabe no seu orçamento';
-    } else {
-      tone = 'warn';
-      headline = 'Cabe, mas fica apertado';
-    }
-    detail = `${installments}x de ${money(plan.installmentValue)} usa ${Math.round(share * 100)}% da sua sobra. ${when}`;
-  }
-
-  // Resultado para o mês escolhido
+  // Resultado para o mês escolhido: indica ou não, e mostra como fica a vida financeira
   const target = plan.target;
-  let tTone: 'ok' | 'warn' | 'bad' = 'ok';
-  let tHead = '';
-  let tDetail = '';
-  if (target && hasData && cost > 0) {
+  const ready = !!target && hasData && cost > 0;
+  type Verdict = 'indicado' | 'apertado' | 'nao';
+  let verdict: Verdict = 'indicado';
+  let headline = '';
+  let rows: { label: string; value: string; strong?: boolean; negative?: boolean }[] = [];
+  let note = '';
+
+  if (ready && target) {
     const when = formatMonthDisplay(target.monthKey);
     if (paymentMethod === 'a_vista') {
-      if (target.feasible) {
-        tHead = `Dá certo em ${when}`;
-        tDetail = `Guardando a sobra de cada mês, você terá ${money(target.saved)} até lá. Depois da compra, a sua sobra mensal segue em ${money(target.surplusBefore)}.`;
-      } else {
-        tTone = 'bad';
-        tHead = `Não fecha até ${when}`;
-        tDetail = `Até lá você junta ${money(target.saved)} e faltam ${money(target.shortfall)}. Para chegar no valor seria preciso guardar ${money(target.requiredPerMonth)} por mês.${
-          plan.bestMonthKey ? ` O primeiro mês que fecha é ${formatMonthDisplay(plan.bestMonthKey)}.` : ' Com a média atual, passa de 5 anos.'
-        }`;
-      }
-    } else if (target.surplusAfter <= 0) {
-      tTone = 'bad';
-      tHead = `Você ficaria no vermelho em ${when}`;
-      tDetail = `A sobra mensal cairia de ${money(target.surplusBefore)} para ${money(target.surplusAfter)} durante as parcelas.${
-        plan.bestMonthKey && plan.bestMonthKey !== target.monthKey ? ` Começar em ${formatMonthDisplay(plan.bestMonthKey)} cabe no orçamento.` : ''
-      }`;
+      verdict = target.feasible ? 'indicado' : 'nao';
+      headline = target.feasible ? `Indicado ir em ${when}` : `Não indicado ir em ${when}`;
+      rows = [
+        { label: 'Guardado até lá', value: money(target.saved) },
+        { label: 'Valor do sonho', value: money(cost) },
+        target.feasible
+          ? { label: 'Sobra depois de pagar', value: money(target.saved - cost), strong: true }
+          : { label: 'Faltam', value: money(target.shortfall), strong: true, negative: true },
+        { label: 'Sobra mensal depois', value: money(target.surplusBefore) },
+      ];
+      if (!target.feasible) note = `Para chegar no valor até lá, seria preciso guardar ${money(target.requiredPerMonth)} por mês.`;
     } else {
-      const worse = target.surplusAfter < target.surplusBefore * 0.3;
-      tTone = worse ? 'warn' : 'ok';
-      tHead = worse ? `Cabe em ${when}, mas fica apertado` : `Cabe em ${when}`;
-      tDetail = `A sobra mensal vai de ${money(target.surplusBefore)} para ${money(target.surplusAfter)} enquanto durarem as parcelas.`;
+      const tight = target.surplusAfter > 0 && target.surplusAfter < target.surplusBefore * 0.3;
+      verdict = target.surplusAfter <= 0 ? 'nao' : tight ? 'apertado' : 'indicado';
+      headline =
+        verdict === 'nao'
+          ? `Não indicado ir em ${when}`
+          : verdict === 'apertado'
+          ? `Dá para ir em ${when}, mas fica apertado`
+          : `Indicado ir em ${when}`;
+      rows = [
+        { label: 'Parcela', value: `${installments}x de ${money(plan.installmentValue)}` },
+        { label: 'Sobra mensal antes', value: money(target.surplusBefore) },
+        { label: 'Sobra mensal com a parcela', value: money(target.surplusAfter), strong: true, negative: target.surplusAfter <= 0 },
+      ];
+      if (verdict === 'nao' && suggestedInstallments && suggestedInstallments > installments) {
+        note = `Dividindo em ${suggestedInstallments}x ou mais, a parcela caberia.`;
+      }
     }
   }
-  const tToneText =
-    tTone === 'ok'
+  const betterMonth =
+    ready && target && verdict !== 'indicado' && plan.bestMonthKey && plan.bestMonthKey !== target.monthKey
+      ? plan.bestMonthKey
+      : null;
+  const verdictText =
+    verdict === 'indicado'
       ? 'text-emerald-600 dark:text-emerald-400'
-      : tTone === 'warn'
-      ? 'text-amber-600 dark:text-amber-400'
-      : 'text-rose-600 dark:text-rose-400';
-
-  const toneText =
-    tone === 'ok'
-      ? 'text-emerald-600 dark:text-emerald-400'
-      : tone === 'warn'
+      : verdict === 'apertado'
       ? 'text-amber-600 dark:text-amber-400'
       : 'text-rose-600 dark:text-rose-400';
 
@@ -411,30 +372,59 @@ export function TravelSimulatorModal({
                   ))}
                 </select>
               </div>
-              {plan.bestMonthKey && plan.bestMonthKey !== targetMonth && hasData && cost > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTargetMonth(plan.bestMonthKey!)}
-                  className="text-xs font-semibold text-blue-600 dark:text-blue-400"
-                >
-                  Usar o melhor mês: {formatMonthDisplay(plan.bestMonthKey)}
-                </button>
-              )}
             </div>
 
             {/* Resultado para o mês escolhido */}
-            {target && hasData && cost > 0 && (
-              <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
-                <p className={`text-base font-bold tracking-tight ${tToneText}`}>{tHead}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{tDetail}</p>
+            {ready && target && (
+              <div className="space-y-2">
+                <p className={`text-base font-bold tracking-tight ${verdictText}`}>{headline}</p>
+                <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] divide-y divide-slate-100 dark:divide-white/[0.06] text-sm">
+                  {rows.map((r) => (
+                    <div key={r.label} className="flex items-center justify-between px-4 py-2.5">
+                      <span className={r.strong ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}>
+                        {r.label}
+                      </span>
+                      <span
+                        className={`tabular-nums ${r.strong ? 'font-bold' : 'font-semibold'} ${
+                          r.negative ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'
+                        }`}
+                      >
+                        {r.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {note && <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{note}</p>}
+                {betterMonth ? (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Melhor mês para ir</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{formatMonthDisplay(betterMonth)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTargetMonth(betterMonth)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900"
+                    >
+                      Usar este mês
+                    </button>
+                  </div>
+                ) : (
+                  verdict !== 'indicado' &&
+                  !plan.bestMonthKey && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Com a sua média atual, esse sonho não cabe nos próximos 5 anos. Tente um valor menor.
+                    </p>
+                  )
+                )}
               </div>
             )}
 
-            {/* Melhor mês */}
-            <div className="space-y-1 px-1">
-              <p className={`text-sm font-semibold ${toneText}`}>{headline}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{detail}</p>
-            </div>
+            {!hasData && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Cadastre suas receitas e gastos para o app calcular pela sua média.
+              </p>
+            )}
 
             {/* Média */}
             <div className="space-y-2">
