@@ -422,6 +422,20 @@ export function TravelSimulatorModal({
               )}
             </div>
 
+            {/* Resultado para o mês escolhido */}
+            {target && hasData && cost > 0 && (
+              <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
+                <p className={`text-base font-bold tracking-tight ${tToneText}`}>{tHead}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{tDetail}</p>
+              </div>
+            )}
+
+            {/* Melhor mês */}
+            <div className="space-y-1 px-1">
+              <p className={`text-sm font-semibold ${toneText}`}>{headline}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{detail}</p>
+            </div>
+
             {/* Média */}
             <div className="space-y-2">
               <div className="flex items-baseline justify-between">
@@ -459,20 +473,6 @@ export function TravelSimulatorModal({
                 Faturas do cartão e parcelas já lançadas entram na conta mês a mês.
               </p>
             )}
-
-            {/* Resultado para o mês escolhido */}
-            {target && hasData && cost > 0 && (
-              <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
-                <p className={`text-base font-bold tracking-tight ${tToneText}`}>{tHead}</p>
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{tDetail}</p>
-              </div>
-            )}
-
-            {/* Melhor mês */}
-            <div className="space-y-1 px-1">
-              <p className={`text-sm font-semibold ${toneText}`}>{headline}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{detail}</p>
-            </div>
 
             {/* Quando junta (somente à vista) */}
             {paymentMethod === 'a_vista' && hasData && plan.milestones.some((m) => m.monthKey) && cost > 0 && (
