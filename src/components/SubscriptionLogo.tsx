@@ -16,6 +16,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { SubscriptionCategory } from '../types';
+import { findBrandIcon } from '../utils/brandIcons';
 
 interface SubscriptionLogoProps {
   serviceKey?: string;
@@ -261,6 +262,24 @@ export function SubscriptionLogo({
         <span className="font-serif font-bold" style={{ fontSize: size * 0.52 }}>
           N
         </span>
+      </div>
+    );
+  }
+
+  // Logo oficial da marca (Simple Icons), quando existir
+  const brand = findBrandIcon(normalizedKey);
+  if (brand) {
+    const lightBg = brand.luminance > 0.72;
+    return (
+      <div
+        style={{ width: size, height: size, borderRadius, backgroundColor: `#${brand.hex}` }}
+        className={`flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden ${className}`}
+        title={brand.title}
+      >
+        <svg width={size * 0.56} height={size * 0.56} viewBox="0 0 24 24" fill={lightBg ? '#111' : '#fff'} aria-hidden="true">
+          <path d={brand.path} />
+        </svg>
+        <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-[inherit] pointer-events-none" />
       </div>
     );
   }
