@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Check } from 'lucide-react';
 import { AccumulationGoal, ExpenseItem, GoalCategory, IncomeItem } from '../types';
-import { formatCurrency, formatMonthDisplay } from '../utils/financeCalculations';
+import { addMonths, formatCurrency, formatMonthDisplay } from '../utils/financeCalculations';
 import { planDream } from '../utils/dreamPlanner';
 
 const DREAMS: {
@@ -22,6 +22,8 @@ const DREAMS: {
 ];
 
 const INSTALLMENT_OPTIONS = [3, 6, 12, 24];
+const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const DEFAULT_MONTHS_AHEAD = 12;
 
 interface TravelSimulatorModalProps {
   isOpen: boolean;
@@ -58,6 +60,7 @@ export function TravelSimulatorModal({
   onSaveGoal,
   isBalanceVisible = true,
   initialTargetAmount = 3000,
+  initialDesiredMonth,
   initialGoalTitle,
   initialCategory = 'viagem',
   initialGoalId,
@@ -69,6 +72,7 @@ export function TravelSimulatorModal({
   const [paymentMethod, setPaymentMethod] = useState<'a_vista' | 'parcelado'>('a_vista');
   const [installments, setInstallments] = useState<number>(12);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
+  const [targetMonth, setTargetMonth] = useState<string>(initialDesiredMonth || addMonths(currentMonth, DEFAULT_MONTHS_AHEAD));
 
   // Reabre sempre com os dados da meta/sonho escolhido
   useEffect(() => {
@@ -78,6 +82,7 @@ export function TravelSimulatorModal({
     setGoalTitle(initialGoalTitle || d.defaultTitle);
     setCost(initialTargetAmount);
     setPaymentMethod('a_vista');
+    setTargetMonth(initialDesiredMonth || addMonths(currentMonth, DEFAULT_MONTHS_AHEAD));
     setIsSavedSuccess(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -90,8 +95,8 @@ export function TravelSimulatorModal({
   };
 
   const plan = useMemo(
-    () => planDream({ currentMonth, targetCost: cost, incomes, expenses, paymentMethod, installments }),
-    [currentMonth, cost, incomes, expenses, paymentMethod, installments]
+    () => planDream({ currentMonth, targetCost: cost, incomes, expenses, paymentMethod, installments, targetMonth }),
+    [currentMonth, cost, incomes, expenses, paymentMethod, installments, targetMonth]
   );
   const { averages } = plan;
   const hasData = averages.monthsUsed > 0;
@@ -103,66 +108,83 @@ export function TravelSimulatorModal({
     return n >= 2 && n <= 60 ? n : null;
   }, [averages.surplus, cost]);
 
+  const [curYear, curMonthNum] = currentMonth.split('-').map(Number);
+  const [targetYear, targetMonthNum] = targetMonth.split('-').map(Number);
+  const yearOptions = Array.from({ length: 6 }, (_, i) => curYear + i);
+  const setTarget = (y: number, m: number) => {
+    let key = `${y}-${String(m).padStart(2, '0')}`;
+    if (key < currentMonth) key = currentMonth;
+    if (key > addMonths(currentMonth, 60)) key = addMonths(currentMonth, 60);
+    setTargetMonth(key);
+  };
+
   const money = (v: number) => (isBalanceVisible ? formatCurrency(v) : 'R$ ••••');
 
-  // Veredito
-  let tone: 'ok' | 'warn' | 'bad' = 'ok';
+  // Resultado para o mês escolhido: indica ou não, e mostra como fica a vida financeira
+  const target = plan.target;
+  const ready = !!target && hasData && cost > 0;
+  type Verdict = 'indicado' | 'apertado' | 'nao';
+  let verdict: Verdict = 'indicado';
   let headline = '';
-  let detail = '';
+  let rows: { label: string; value: string; strong?: boolean; negative?: boolean }[] = [];
+  let note = '';
 
-  if (!hasData) {
-    tone = 'warn';
-    headline = 'Ainda sem dados para calcular';
-    detail = 'Cadastre suas receitas e gastos para o app descobrir a sua média.';
-  } else if (plan.monthsToAfford === null && averages.surplus <= 0) {
-    tone = 'bad';
-    headline = 'Hoje não sobra dinheiro no mês';
-    detail = `Você gasta em média ${money(Math.abs(averages.surplus))} a mais do que recebe. Reduzir esse valor é o primeiro passo para realizar o sonho.`;
-  } else if (paymentMethod === 'a_vista') {
-    if (plan.monthsToAfford === null) {
-      tone = 'bad';
-      headline = 'Vai levar mais de 5 anos';
-      detail = `Com a sobra de ${money(averages.surplus)} por mês, o valor é alto demais. Tente um valor menor ou parcelar.`;
-    } else if (plan.monthsToAfford === 0) {
-      tone = 'ok';
-      headline = 'Você já pode realizar';
-      detail = 'A sobra de um mês já cobre o valor.';
+  if (ready && target) {
+    const when = formatMonthDisplay(target.monthKey);
+    if (paymentMethod === 'a_vista') {
+      const tightCash = target.monthBalance >= 0 && target.monthBalance < target.surplusBefore * 0.3;
+      verdict = target.monthBalance < 0 ? 'nao' : tightCash ? 'apertado' : 'indicado';
+      headline =
+        verdict === 'nao'
+          ? `Não indicado ir em ${when}`
+          : verdict === 'apertado'
+          ? `Dá para ir em ${when}, mas fica apertado`
+          : `Indicado ir em ${when}`;
+      rows = [
+        { label: 'Sobra prevista do mês', value: money(target.surplusBefore) },
+        { label: 'Pagamento do sonho', value: money(cost) },
+        { label: 'Saldo do mês depois', value: money(target.monthBalance), strong: true, negative: target.monthBalance < 0 },
+      ];
+      if (verdict === 'nao') {
+        note =
+          target.monthsToRecover === null
+            ? 'Você fecharia o mês no vermelho e, com a sua média, levaria mais de 5 anos para se recuperar.'
+            : `Você fecharia o mês no vermelho e levaria ${target.monthsToRecover} ${target.monthsToRecover === 1 ? 'mês' : 'meses'} de sobra para se recuperar.`;
+      }
     } else {
-      tone = 'ok';
-      headline = `Melhor momento: ${formatMonthDisplay(plan.bestMonthKey!)}`;
-      detail = `Guardando o que sobra a cada mês, já descontando as faturas e parcelas que você tem lançadas, você junta ${money(cost)} ${monthsLabel(plan.monthsToAfford)}.`;
+      const tight = target.surplusAfter > 0 && target.surplusAfter < target.surplusBefore * 0.3;
+      verdict = target.surplusAfter <= 0 ? 'nao' : tight ? 'apertado' : 'indicado';
+      headline =
+        verdict === 'nao'
+          ? `Não indicado ir em ${when}`
+          : verdict === 'apertado'
+          ? `Dá para ir em ${when}, mas fica apertado`
+          : `Indicado ir em ${when}`;
+      rows = [
+        { label: 'Parcela', value: `${installments}x de ${money(plan.installmentValue)}` },
+        { label: 'Sobra mensal antes', value: money(target.surplusBefore) },
+        { label: 'Sobra mensal com a parcela', value: money(target.surplusAfter), strong: true, negative: target.surplusAfter <= 0 },
+      ];
+      if (verdict === 'nao' && suggestedInstallments && suggestedInstallments > installments) {
+        note = `Dividindo em ${suggestedInstallments}x ou mais, a parcela caberia.`;
+      }
     }
-  } else if (plan.monthsToAfford === null) {
-    tone = 'bad';
-    headline = 'A parcela não cabe no orçamento';
-    detail = `${installments}x de ${money(plan.installmentValue)} é mais do que sobra por mês, mesmo depois que suas faturas e parcelas atuais terminarem.${suggestedInstallments ? ` Dividindo em ${suggestedInstallments}x ou mais, caberia.` : ''}`;
-  } else {
-    const share = plan.installmentShareOfSurplus ?? 1;
-    const when =
-      plan.monthsToAfford === 0
-        ? 'Pode começar agora.'
-        : `Melhor começar em ${formatMonthDisplay(plan.bestMonthKey!)}, quando suas faturas e parcelas atuais aliviarem.`;
-    if (share <= 0.7) {
-      tone = 'ok';
-      headline = 'Cabe no seu orçamento';
-    } else {
-      tone = 'warn';
-      headline = 'Cabe, mas fica apertado';
-    }
-    detail = `${installments}x de ${money(plan.installmentValue)} usa ${Math.round(share * 100)}% da sua sobra. ${when}`;
   }
-
-  const toneText =
-    tone === 'ok'
+  const betterMonth =
+    ready && target && verdict !== 'indicado' && plan.bestMonthKey && plan.bestMonthKey !== target.monthKey
+      ? plan.bestMonthKey
+      : null;
+  const verdictText =
+    verdict === 'indicado'
       ? 'text-emerald-600 dark:text-emerald-400'
-      : tone === 'warn'
+      : verdict === 'apertado'
       ? 'text-amber-600 dark:text-amber-400'
       : 'text-rose-600 dark:text-rose-400';
 
   const handleSaveAsGoal = () => {
     if (!onSaveGoal) return;
     const existing = initialGoalId ? existingGoals.find((g) => g.id === initialGoalId) : undefined;
-    const monthsAhead = plan.monthsToAfford ?? 12;
+    const monthsAhead = target?.monthsAhead ?? plan.monthsToAfford ?? 12;
 
     const goalToSave: AccumulationGoal = {
       id: existing ? existing.id : `goal-dream-${Date.now()}`,
@@ -174,8 +196,8 @@ export function TravelSimulatorModal({
       category: dream.id,
       color: dream.color,
       icon: existing?.icon || dream.id,
-      notes: plan.bestMonthKey
-        ? `Simulação: ${formatMonthDisplay(plan.bestMonthKey)}.`
+      notes: target
+        ? `Simulação: realizar em ${formatMonthDisplay(target.monthKey)}${target.feasible ? '' : ' (não indicado com a média atual)'}.`
         : 'Simulação: ainda não cabe na média atual.',
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -331,6 +353,115 @@ export function TravelSimulatorModal({
               )}
             </div>
 
+            {/* Quando */}
+            <div className="space-y-2">
+              <span className={labelCls}>Em que mês quer realizar</span>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={targetMonthNum}
+                  onChange={(e) => setTarget(targetYear, Number(e.target.value))}
+                  className={fieldCls}
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={i + 1}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={targetYear}
+                  onChange={(e) => setTarget(Number(e.target.value), targetMonthNum)}
+                  className={fieldCls}
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Resultado para o mês escolhido */}
+            {ready && target && (
+              <div className="space-y-2">
+                <p className={`text-base font-bold tracking-tight ${verdictText}`}>{headline}</p>
+                <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] divide-y divide-slate-100 dark:divide-white/[0.06] text-sm">
+                  {rows.map((r) => (
+                    <div key={r.label} className="flex items-center justify-between px-4 py-2.5">
+                      <span className={r.strong ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}>
+                        {r.label}
+                      </span>
+                      <span
+                        className={`tabular-nums whitespace-nowrap ${r.strong ? 'font-bold' : 'font-semibold'} ${
+                          r.negative ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'
+                        }`}
+                      >
+                        {r.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {note && <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{note}</p>}
+                {betterMonth ? (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Melhor mês para ir</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{formatMonthDisplay(betterMonth)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTargetMonth(betterMonth)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900"
+                    >
+                      Usar este mês
+                    </button>
+                  </div>
+                ) : (
+                  verdict !== 'indicado' &&
+                  !plan.bestMonthKey && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {paymentMethod === 'a_vista'
+                          ? 'Com a sua média, nenhum mês cobre esse valor de uma vez. Experimente parcelar ou um valor menor.'
+                          : 'Com a sua média, essa parcela não cabe sem apertar em nenhum mês dos próximos 5 anos. Experimente mais parcelas ou um valor menor.'}
+                      </p>
+                      {plan.leastBadMonthKey && plan.leastBadMonthKey !== target.monthKey ? (
+                        <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3">
+                          <div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Mês em que pesa menos</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">
+                              {formatMonthDisplay(plan.leastBadMonthKey)}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Saldo do mês: {money(plan.leastBadBalance)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTargetMonth(plan.leastBadMonthKey!)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 shrink-0"
+                          >
+                            Usar este mês
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          Esse já é o mês em que pesa menos nos próximos 5 anos.
+                        </p>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+            {!hasData && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Cadastre suas receitas e gastos para o app calcular pela sua média.
+              </p>
+            )}
+
             {/* Média */}
             <div className="space-y-2">
               <div className="flex items-baseline justify-between">
@@ -367,31 +498,6 @@ export function TravelSimulatorModal({
               <p className="text-xs text-slate-400 -mt-2.5">
                 Faturas do cartão e parcelas já lançadas entram na conta mês a mês.
               </p>
-            )}
-
-            {/* Resultado */}
-            <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3.5">
-              <p className={`text-base font-bold tracking-tight ${toneText}`}>{headline}</p>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{detail}</p>
-            </div>
-
-            {/* Quando junta (somente à vista) */}
-            {paymentMethod === 'a_vista' && hasData && plan.milestones.some((m) => m.monthKey) && cost > 0 && (
-              <div className="space-y-2">
-                <span className={labelCls}>Quando você junta</span>
-                <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] divide-y divide-slate-100 dark:divide-white/[0.06] text-sm">
-                  {plan.milestones.map((m) => (
-                    <div key={m.percent} className="flex items-center justify-between px-4 py-2.5">
-                      <span className="text-slate-600 dark:text-slate-300">
-                        {m.percent}% <span className="text-slate-400">· {money((cost * m.percent) / 100)}</span>
-                      </span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {m.monthKey ? formatMonthDisplay(m.monthKey) : 'Mais de 5 anos'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
           </div>
 
