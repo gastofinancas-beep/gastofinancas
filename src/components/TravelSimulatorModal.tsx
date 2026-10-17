@@ -2,7 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Plane, 
+  Plane,
+  Car,
+  Home,
+  Laptop,
+  GraduationCap,
+  Star,
   Sparkles, 
   AlertTriangle, 
   CheckCircle2, 
@@ -14,7 +19,7 @@ import {
   TrendingUp,
   Calendar
 } from 'lucide-react';
-import { AccumulationGoal, ExpenseItem, IncomeItem } from '../types';
+import { AccumulationGoal, ExpenseItem, GoalCategory, IncomeItem } from '../types';
 import { 
   formatCurrency, 
   formatMonthDisplay, 
@@ -23,6 +28,22 @@ import {
   getMonthDiff 
 } from '../utils/financeCalculations';
 import { calculateTravelFeasibility } from '../utils/travelFeasibilityCalculator';
+
+const DREAMS: {
+  id: GoalCategory;
+  label: string;
+  icon: React.ElementType;
+  defaultTitle: string;
+  amounts: number[];
+  color: string;
+}[] = [
+  { id: 'viagem', label: 'Viagem', icon: Plane, defaultTitle: 'Viagem dos sonhos', amounts: [1500, 3000, 5000, 10000], color: '#3B82F6' },
+  { id: 'veiculo', label: 'Carro ou moto', icon: Car, defaultTitle: 'Meu carro', amounts: [10000, 30000, 60000, 100000], color: '#F59E0B' },
+  { id: 'imovel', label: 'Casa', icon: Home, defaultTitle: 'Minha casa', amounts: [5000, 20000, 50000, 100000], color: '#10B981' },
+  { id: 'eletronicos', label: 'Tecnologia', icon: Laptop, defaultTitle: 'Novo celular', amounts: [1500, 3000, 5000, 8000], color: '#06B6D4' },
+  { id: 'estudos', label: 'Estudos', icon: GraduationCap, defaultTitle: 'Curso dos sonhos', amounts: [500, 1500, 3000, 6000], color: '#8B5CF6' },
+  { id: 'outro', label: 'Outro sonho', icon: Star, defaultTitle: 'Meu sonho', amounts: [1000, 3000, 5000, 10000], color: '#EC4899' },
+];
 
 interface TravelSimulatorModalProps {
   isOpen: boolean;
@@ -36,6 +57,8 @@ interface TravelSimulatorModalProps {
   initialTargetAmount?: number;
   initialDesiredMonth?: string;
   initialGoalTitle?: string;
+  initialCategory?: GoalCategory;
+  initialGoalId?: string;
 }
 
 export function TravelSimulatorModal({
@@ -49,10 +72,15 @@ export function TravelSimulatorModal({
   isBalanceVisible = true,
   initialTargetAmount = 1500,
   initialDesiredMonth,
-  initialGoalTitle = 'Viagem de Férias',
+  initialGoalTitle,
+  initialCategory = 'viagem',
+  initialGoalId,
 }: TravelSimulatorModalProps) {
   // Inputs
-  const [goalTitle, setGoalTitle] = useState(initialGoalTitle);
+  const [dreamId, setDreamId] = useState<GoalCategory>(initialCategory);
+  const dream = DREAMS.find((d) => d.id === dreamId) || DREAMS[0];
+  const DreamIcon = dream.icon;
+  const [goalTitle, setGoalTitle] = useState(initialGoalTitle || dream.defaultTitle);
   const [cost, setCost] = useState<number>(initialTargetAmount);
   const defaultDesired = initialDesiredMonth || addMonths(currentMonth, 2);
   const [desiredMonth, setDesiredMonth] = useState<string>(defaultDesired);
@@ -60,6 +88,25 @@ export function TravelSimulatorModal({
   const [installments, setInstallments] = useState<number>(5);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
   const [showTable, setShowTable] = useState(false);
+
+  // Reabre sempre com os dados da meta/sonho escolhido
+  useEffect(() => {
+    if (!isOpen) return;
+    const d = DREAMS.find((x) => x.id === initialCategory) || DREAMS[0];
+    setDreamId(d.id);
+    setGoalTitle(initialGoalTitle || d.defaultTitle);
+    setCost(initialTargetAmount);
+    setDesiredMonth(initialDesiredMonth || addMonths(currentMonth, 2));
+    setIsSavedSuccess(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  const handlePickDream = (id: GoalCategory) => {
+    const d = DREAMS.find((x) => x.id === id) || DREAMS[0];
+    setDreamId(id);
+    setGoalTitle(d.defaultTitle);
+    setCost(d.amounts[1]);
+  };
 
   // Month offset relative to current
   const rawOffset = getMonthDiff(currentMonth, desiredMonth);
@@ -117,21 +164,19 @@ export function TravelSimulatorModal({
   // Save goal handler
   const handleSaveAsGoal = () => {
     if (!onSaveGoal) return;
-    const existing = existingGoals.find(
-      (g) => g.category === 'viagem' || g.title.toLowerCase().includes('viagem')
-    );
+    const existing = initialGoalId ? existingGoals.find((g) => g.id === initialGoalId) : undefined;
 
     const goalToSave: AccumulationGoal = {
-      id: existing ? existing.id : `goal-trip-${Date.now()}`,
-      title: goalTitle.trim() || 'Viagem',
+      id: existing ? existing.id : `goal-dream-${Date.now()}`,
+      title: goalTitle.trim() || dream.defaultTitle,
       targetAmount: cost,
-      currentAmount: 0,
+      currentAmount: existing ? existing.currentAmount : 0,
       startMonth: currentMonth,
       targetMonthsCount: Math.max(1, selectedMonthOffset || 1),
-      category: 'viagem',
-      color: '#3B82F6',
-      icon: 'Plane',
-      notes: `Viagem: ${formatMonthDisplay(desiredMonth)}. Melhor mês: ${formatMonthDisplay(bestMonthKey)} (${selectedScenario.tightMonthsCount === 0 ? 'Sem aperto' : `${selectedScenario.tightMonthsCount} meses no aperto`}).`,
+      category: dream.id,
+      color: dream.color,
+      icon: existing?.icon || dream.id,
+      notes: `Sonho para ${formatMonthDisplay(desiredMonth)}. Melhor mês: ${formatMonthDisplay(bestMonthKey)} (${selectedScenario.tightMonthsCount === 0 ? 'Sem aperto' : `${selectedScenario.tightMonthsCount} meses no aperto`}).`,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -171,14 +216,14 @@ export function TravelSimulatorModal({
           <div className="px-5 py-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Plane size={18} className="stroke-[2.2]" />
+                <Sparkles size={18} className="stroke-[2.2]" />
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                  Simulador de Viagens
+                  Simulador de Sonhos
                 </h2>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Previsão de aperto financeiro e melhor mês para viajar
+                  Veja quando dá para realizar e se vai apertar o orçamento
                 </p>
               </div>
             </div>
@@ -195,12 +240,48 @@ export function TravelSimulatorModal({
           {/* CONTENT (SCROLLABLE) */}
           <div className="p-5 overflow-y-auto space-y-4">
             
+            {/* 0. QUAL É O SONHO */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Qual é o seu sonho?
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {DREAMS.map((d) => {
+                  const Icon = d.icon;
+                  const active = d.id === dreamId;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => handlePickDream(d.id)}
+                      className={`flex flex-col items-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-slate-50 dark:bg-white/[0.04] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon size={16} />
+                      <span className="leading-tight text-center">{d.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                value={goalTitle}
+                onChange={(e) => setGoalTitle(e.target.value)}
+                maxLength={40}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                placeholder="Dê um nome ao seu sonho"
+              />
+            </div>
+
             {/* 1. INPUTS ROW (VALOR & DATA DESEJADA) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Custo Total */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Custo da Viagem
+                  Quanto custa
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -216,7 +297,7 @@ export function TravelSimulatorModal({
                 </div>
                 {/* Fast Chips */}
                 <div className="flex gap-1 pt-0.5">
-                  {[1000, 1500, 2500, 5000].map((val) => (
+                  {dream.amounts.map((val) => (
                     <button
                       key={val}
                       type="button"
@@ -237,7 +318,7 @@ export function TravelSimulatorModal({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Data Desejada
+                    Quando realizar
                   </label>
                   <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
                     {selectedMonthOffset === 0 ? 'Mês atual' : `em ${selectedMonthOffset}m`}
@@ -328,7 +409,7 @@ export function TravelSimulatorModal({
                     onClick={() => setDesiredMonth(bestMonthKey)}
                     className="mt-2.5 w-full py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
-                    <span>Viajar neste mês</span>
+                    <span>Escolher este mês</span>
                     <ArrowRight size={12} />
                   </button>
                 )}
@@ -362,13 +443,13 @@ export function TravelSimulatorModal({
 
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
                     {selectedScenario.tightMonthsCount === 0
-                      ? `Você manterá ${formatCurrency(selectedScenario.postTripSavingsAtTravel)} em caixa após a viagem.`
+                      ? `Você manterá ${formatCurrency(selectedScenario.postTripSavingsAtTravel)} em caixa depois de realizar.`
                       : `Déficit de até ${formatCurrency(Math.abs(selectedScenario.maxDeficitAmount))}.`}
                   </p>
                 </div>
 
                 <div className="mt-2.5 pt-2 border-t border-slate-200/40 dark:border-white/[0.06] flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Saldo pós-viagem:</span>
+                  <span className="text-slate-500">Saldo depois:</span>
                   <strong className={`tabular-nums ${selectedScenario.postTripSavingsAtTravel >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {formatCurrency(selectedScenario.postTripSavingsAtTravel)}
                   </strong>
@@ -415,7 +496,7 @@ export function TravelSimulatorModal({
                       {/* Icon or Status Indicator */}
                       <span className="my-1">
                         {isSelected ? (
-                          <Plane size={11} className="text-white" />
+                          <DreamIcon size={11} className="text-white" />
                         ) : isBest ? (
                           <Sparkles size={11} className="text-emerald-600 dark:text-emerald-400" />
                         ) : (
@@ -458,7 +539,7 @@ export function TravelSimulatorModal({
                     <thead className="bg-slate-50 dark:bg-white/[0.04] text-[10px] uppercase font-bold text-slate-400">
                       <tr>
                         <th className="py-2 px-3">Mês</th>
-                        <th className="py-2 px-3">Gastos + Viagem</th>
+                        <th className="py-2 px-3">Gastos + Sonho</th>
                         <th className="py-2 px-3">Saldo Final</th>
                         <th className="py-2 px-3 text-right">Status</th>
                       </tr>
@@ -522,7 +603,7 @@ export function TravelSimulatorModal({
                 ) : (
                   <>
                     <Plus size={14} />
-                    <span>Salvar Meta</span>
+                    <span>Salvar como meta</span>
                   </>
                 )}
               </button>

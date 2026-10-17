@@ -32,6 +32,7 @@ import {
 import { 
   MonthlySavingsTarget, 
   AccumulationGoal, 
+  GoalCategory,
   MonthSummary, 
   IncomeItem, 
   ExpenseItem 
@@ -114,17 +115,25 @@ export function SavingsGoalsView({
   // Travel Simulator config state
   const [isTravelSimulatorModalOpen, setIsTravelSimulatorModalOpen] = useState(false);
   const [simulatorConfig, setSimulatorConfig] = useState<{
-    title: string;
+    title?: string;
     targetAmount: number;
+    category?: GoalCategory;
+    goalId?: string;
   }>({
-    title: 'Viajar',
-    targetAmount: 1500,
+    targetAmount: 3000,
   });
+
+  const handleOpenFreshSimulator = () => {
+    setSimulatorConfig({ targetAmount: 3000 });
+    setIsTravelSimulatorModalOpen(true);
+  };
 
   const handleOpenSimulatorWithGoal = (goal: AccumulationGoal) => {
     setSimulatorConfig({
       title: goal.title,
       targetAmount: goal.targetAmount,
+      category: goal.category,
+      goalId: goal.id,
     });
     setIsTravelSimulatorModalOpen(true);
   };
@@ -529,30 +538,30 @@ export function SavingsGoalsView({
       <div id="travel-simulator-section" className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent dark:from-blue-950/30 dark:via-indigo-950/15 rounded-3xl p-4 sm:p-5 border border-blue-500/20 dark:border-blue-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Plane size={20} className="stroke-[2.2]" />
+            <Sparkles size={20} className="stroke-[2.2]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                Simulador de Viagens
+                Simulador de Sonhos
               </h2>
               <span className="px-2 py-0.2 rounded-full text-[9px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 uppercase tracking-wider">
                 Novo
               </span>
             </div>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Descubra em qual mês você estará mais bem preparado e se terá aperto financeiro.
+              Viagem, carro, casa, celular... descubra em qual mês o seu sonho cabe no bolso, sem apertar o orçamento.
             </p>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => setIsTravelSimulatorModalOpen(true)}
+          onClick={handleOpenFreshSimulator}
           className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
         >
-          <Plane size={14} />
-          <span>Simular Viagem</span>
+          <Sparkles size={14} />
+          <span>Simular meu sonho</span>
           <ArrowRight size={13} />
         </button>
       </div>
@@ -773,9 +782,9 @@ export function SavingsGoalsView({
                       type="button"
                       onClick={() => handleOpenSimulatorWithGoal(goal)}
                       className="py-2 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98 shrink-0"
-                      title="Simular melhor mês e aperto financeiro"
+                      title="Simular o melhor mês para realizar"
                     >
-                      <Plane size={14} />
+                      <Sparkles size={14} />
                       <span>Simular Mês Ideal</span>
                     </button>
                   </div>
@@ -1047,6 +1056,8 @@ export function SavingsGoalsView({
         isBalanceVisible={isBalanceVisible}
         initialTargetAmount={simulatorConfig.targetAmount}
         initialGoalTitle={simulatorConfig.title}
+        initialCategory={simulatorConfig.category}
+        initialGoalId={simulatorConfig.goalId}
       />
 
     </div>
