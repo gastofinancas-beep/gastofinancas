@@ -574,54 +574,11 @@ export default function App() {
     }
   }, []);
 
-  // Global swipe-to-back gesture handler
-  const globalTouchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const [globalSwipeOffset, setGlobalSwipeOffset] = useState<number>(0);
-  const [isGlobalSwiping, setIsGlobalSwiping] = useState(false);
-
-  const handleGlobalTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    const clientX = e.touches[0].clientX;
-    if (clientX > 55) return;
-
-    globalTouchStartRef.current = {
-      x: clientX,
-      y: e.touches[0].clientY,
-      time: Date.now(),
-    };
-  };
-
-  const handleGlobalTouchMove = (e: React.TouchEvent) => {
-    if (!globalTouchStartRef.current || e.touches.length !== 1) return;
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
-    const deltaX = currentX - globalTouchStartRef.current.x;
-    const deltaY = currentY - globalTouchStartRef.current.y;
-
-    if (deltaX > 12 && deltaX > Math.abs(deltaY) * 1.2) {
-      setIsGlobalSwiping(true);
-      const maxDrag = typeof window !== 'undefined' ? window.innerWidth : 400;
-      const damped = Math.min(maxDrag * 0.75, deltaX);
-      setGlobalSwipeOffset(damped);
-    }
-  };
-
-  const handleGlobalTouchEnd = (e: React.TouchEvent) => {
-    if (!globalTouchStartRef.current) {
-      setGlobalSwipeOffset(0);
-      setIsGlobalSwiping(false);
-      return;
-    }
-
-    const currentX = e.changedTouches[0]?.clientX ?? 0;
-    const currentY = e.changedTouches[0]?.clientY ?? 0;
-    const deltaX = currentX - globalTouchStartRef.current.x;
-    const deltaY = currentY - globalTouchStartRef.current.y;
-    const duration = Date.now() - globalTouchStartRef.current.time;
-    const isQuickFlick = deltaX > 45 && duration < 280 && deltaX > Math.abs(deltaY);
-    const isPassedThreshold = deltaX > 80;
-
-    if (isQuickFlick || isPassedThreshold) {
+  // Global swipe-to-back gesture (arrastar da borda esquerda para voltar).
+  // O arrasto move o elemento direto pelo DOM (sem setState a cada toque), para não re-renderizar o app inteiro.
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
+  const commitSwipeBackRef = useRef<() => void>(() => {});
+  commitSwipeBackRef.current = () => {
       triggerHaptic(12);
       if (isAddExpenseOpen) setIsAddExpenseOpen(false);
       else if (isAddIncomeOpen) setIsAddIncomeOpen(false);
@@ -644,12 +601,110 @@ export default function App() {
       else if (activeTab !== 'dashboard') {
         handleTabChange('dashboard');
       }
-    }
-
-    setGlobalSwipeOffset(0);
-    setIsGlobalSwiping(false);
-    globalTouchStartRef.current = null;
   };
+
+  useEffect(() => {
+    const el = swipeContainerRef.current;
+    if (!el) return;
+
+    const EDGE = 55;
+    const COMMIT_DISTANCE = 80;
+    let start: { x: number; y: number; time: number } | null = null;
+    let dragging = false;
+    let offset = 0;
+    let frame = 0;
+
+    const apply = () => {
+      frame = 0;
+      const progress = Math.min(1, offset / window.innerWidth);
+      el.style.transform = `translate3d(${offset}px,0,0)`;
+      el.style.opacity = String(1 - progress * 0.25);
+    };
+
+    const release = (committed: boolean) => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      el.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease-out';
+      el.style.transform = 'translate3d(0,0,0)';
+      el.style.opacity = '1';
+      const cleanup = () => {
+        el.style.transition = '';
+        el.style.transform = '';
+        el.style.opacity = '';
+        el.style.willChange = '';
+        el.removeEventListener('transitionend', cleanup);
+      };
+      el.addEventListener('transitionend', cleanup);
+      window.setTimeout(cleanup, 420);
+      if (committed) commitSwipeBackRef.current();
+      dragging = false;
+      start = null;
+      offset = 0;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (t.clientX > EDGE) return;
+      start = { x: t.clientX, y: t.clientY, time: Date.now() };
+      dragging = false;
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!start || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (!dragging) {
+        if (dx > 10 && dx > Math.abs(dy) * 1.2) {
+          dragging = true;
+          el.style.transition = 'none';
+          el.style.willChange = 'transform, opacity';
+        } else if (Math.abs(dy) > 14) {
+          start = null; // gesto vertical: deixa a rolagem normal
+          return;
+        } else {
+          return;
+        }
+      }
+      if (e.cancelable) e.preventDefault();
+      // Resistência suave: segue o dedo no começo e vai "pesando" depois do ponto de soltar
+      const max = window.innerWidth * 0.75;
+      offset = Math.min(max, dx <= COMMIT_DISTANCE ? dx : COMMIT_DISTANCE + (dx - COMMIT_DISTANCE) * 0.5);
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+
+    const onEnd = (e: TouchEvent) => {
+      if (!start) return;
+      if (!dragging) {
+        start = null;
+        return;
+      }
+      const t = e.changedTouches[0];
+      const dx = (t?.clientX ?? start.x) - start.x;
+      const dy = (t?.clientY ?? start.y) - start.y;
+      const duration = Date.now() - start.time;
+      const quickFlick = dx > 45 && duration < 280 && dx > Math.abs(dy);
+      release(quickFlick || dx > COMMIT_DISTANCE);
+    };
+
+    const onCancel = () => {
+      if (dragging) release(false);
+      start = null;
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    el.addEventListener('touchcancel', onCancel, { passive: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onCancel);
+    };
+  }, [isLocked, isPinSetupOpen]);
   const [isBalanceVisible, setIsBalanceVisible] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('gasto_balance_visible');
@@ -3792,20 +3847,9 @@ function computeDataSignature(data: any): string {
       {/* Main app chrome and content (hidden while full-screen PIN Setup or Lock Screen is active) */}
       {!isLocked && !isPinSetupOpen && (
         <div 
-          onTouchStart={handleGlobalTouchStart}
-          onTouchMove={handleGlobalTouchMove}
-          onTouchEnd={handleGlobalTouchEnd}
-          style={{
-            transform: globalSwipeOffset > 0 ? `translateX(${globalSwipeOffset}px)` : undefined,
-            transition: globalSwipeOffset > 0 ? (isGlobalSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)') : undefined,
-          }}
+          ref={swipeContainerRef}
           className="flex flex-col lg:flex-row min-h-screen w-full relative"
         >
-          {globalSwipeOffset > 20 && (
-            <div className="fixed top-0 bottom-0 left-0 w-2 bg-emerald-500/50 z-50 pointer-events-none flex items-center justify-center">
-              <div className="w-1.5 h-16 bg-emerald-600 rounded-full shadow-lg" />
-            </div>
-          )}
           {/* Desktop Sidebar Column */}
           <Sidebar
             activeTab={activeTab}
