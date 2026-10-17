@@ -16,6 +16,9 @@ export interface DreamPlan {
   // Primeiro mês (0 = este) em que o sonho cabe na sobra daquele mês. null = nunca com a média atual.
   monthsToAfford: number | null;
   bestMonthKey: string | null;
+  // Quando nenhum mês fecha no azul: o mês em que o sonho pesa menos e o saldo que sobra (ou falta) nele
+  leastBadMonthKey: string | null;
+  leastBadBalance: number;
   // Parcelado: quanto da sobra do mês de início a parcela consome
   installmentShareOfSurplus: number | null;
   // Maior valor de parcelas/faturas já lançadas nos próximos meses que ainda pesa na sobra
@@ -128,6 +131,20 @@ export function planDream(options: {
     installmentShareOfSurplus = startSurplus > 0 ? installmentValue / startSurplus : null;
   }
 
+  // Mês menos pesado: maior folga depois de pagar (à vista) ou depois da parcela (parcelado)
+  let leastBadMonth = 0;
+  let leastBadBalance = -Infinity;
+  for (let k = 0; k <= MAX_HORIZON; k++) {
+    const balance =
+      paymentMethod === 'a_vista'
+        ? surplusByMonth[k] - cost
+        : Math.min(...surplusByMonth.slice(k, k + installmentsCount)) - installmentValue;
+    if (balance > leastBadBalance) {
+      leastBadBalance = balance;
+      leastBadMonth = k;
+    }
+  }
+
   let target: DreamTarget | null = null;
   if (targetMonth) {
     const [cy, cm] = currentMonth.split('-').map(Number);
@@ -175,6 +192,8 @@ export function planDream(options: {
     installmentsCount,
     monthsToAfford,
     bestMonthKey: monthsToAfford === null ? null : addMonths(currentMonth, monthsToAfford),
+    leastBadMonthKey: addMonths(currentMonth, leastBadMonth),
+    leastBadBalance,
     installmentShareOfSurplus,
     upcomingInstallmentsNow: sumExpenses(expenses, currentMonth, true),
   };

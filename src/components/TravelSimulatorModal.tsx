@@ -420,11 +420,37 @@ export function TravelSimulatorModal({
                 ) : (
                   verdict !== 'indicado' &&
                   !plan.bestMonthKey && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {paymentMethod === 'a_vista'
-                        ? 'Com a sua média, nenhum mês cobre esse valor de uma vez. Experimente parcelar ou um valor menor.'
-                        : 'Com a sua média, essa parcela não cabe em nenhum mês dos próximos 5 anos. Experimente mais parcelas ou um valor menor.'}
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {paymentMethod === 'a_vista'
+                          ? 'Com a sua média, nenhum mês cobre esse valor de uma vez. Experimente parcelar ou um valor menor.'
+                          : 'Com a sua média, essa parcela não cabe sem apertar em nenhum mês dos próximos 5 anos. Experimente mais parcelas ou um valor menor.'}
+                      </p>
+                      {plan.leastBadMonthKey && plan.leastBadMonthKey !== target.monthKey ? (
+                        <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] px-4 py-3">
+                          <div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Mês em que pesa menos</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">
+                              {formatMonthDisplay(plan.leastBadMonthKey)}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Saldo do mês: {money(plan.leastBadBalance)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTargetMonth(plan.leastBadMonthKey!)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 shrink-0"
+                          >
+                            Usar este mês
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          Esse já é o mês em que pesa menos nos próximos 5 anos.
+                        </p>
+                      )}
+                    </div>
                   )
                 )}
               </div>
