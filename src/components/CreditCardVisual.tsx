@@ -7,6 +7,18 @@ import { formatCurrency } from '../utils/financeCalculations';
 import { getCardPresetById, matchBestCardPreset } from '../data/bankCards';
 import { computeCardThemeStyles } from '../utils/cards/cardThemeStyles';
 
+function hexGradientToCss(gradient?: string): string | undefined {
+  if (!gradient) return undefined;
+  const pick = (key: string) => gradient.match(new RegExp(`${key}-\\[(#[0-9a-fA-F]{3,8})\\]`))?.[1];
+  const from = pick('from');
+  const via = pick('via');
+  const to = pick('to');
+  const stops = [from, via, to].filter(Boolean) as string[];
+  if (stops.length === 0) return undefined;
+  if (stops.length === 1) return stops[0];
+  return `linear-gradient(to top right, ${stops.join(', ')})`;
+}
+
 export type CardBrand = 'mastercard' | 'visa' | 'elo' | 'amex' | 'hipercard' | 'generic';
 
 /**
@@ -225,12 +237,14 @@ export function CreditCardVisual({
   const borderSubtle = isDarkText ? 'border-slate-900/15' : 'border-white/20';
 
   // Se tiver gradiente explícito, usa ele. Se não, usa o estilo computado do preset ou o gradiente vibrante correspondente.
+  // Gradientes com cor livre (ex.: from-[#820AD1]) vindos do catálogo/scanner não existem no CSS gerado: viram CSS inline.
+  const customGradientCss = hexGradientToCss(card.gradient);
   const gradientClass = card.gradient
-    ? (card.gradient.includes('bg-gradient') ? card.gradient : `bg-gradient-to-tr ${card.gradient}`)
+    ? (customGradientCss ? '' : (card.gradient.includes('bg-gradient') ? card.gradient : `bg-gradient-to-tr ${card.gradient}`))
     : (card.color ? '' : (themeStyles ? '' : `bg-gradient-to-tr ${getVibrantBankGradient(card.bank || card.name)}`));
 
   const inlineBackground = card.gradient
-    ? undefined
+    ? customGradientCss
     : (card.color ? card.color : themeStyles?.background);
 
   const hasPhotoBackground = Boolean(card.cardPhotoUrl && card.visualStyle !== 'digital');
