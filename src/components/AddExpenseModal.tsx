@@ -883,7 +883,7 @@ export function AddExpenseModal({
 
                     {/* Chips rápidos de parcelas */}
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                      {[2, 3, 4, 5, 6, 10, 12, 18, 24].map((num) => (
+                      {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24].map((num) => (
                         <button
                           key={num}
                           type="button"
