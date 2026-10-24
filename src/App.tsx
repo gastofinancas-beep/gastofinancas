@@ -410,6 +410,7 @@ export default function App() {
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
   const isOnline = useNetworkStatus();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   // App Lock & PIN Setup State: only lock if user explicitly configured and enabled appLock in profile
@@ -1323,6 +1324,7 @@ function computeDataSignature(data: any): string {
 
         lastSyncedSignatureRef.current = signature;
         setIsSyncing(false);
+        setSyncError(null);
         setLastSyncedAt(new Date());
       } catch (e: any) {
         if (e?.code === 'resource-exhausted' || String(e).includes('resource-exhausted') || String(e).includes('Quota limit')) {
@@ -1331,6 +1333,7 @@ function computeDataSignature(data: any): string {
         } else {
           console.warn('Firestore sync notice:', e);
         }
+        setSyncError(String(e?.code || e?.message || 'erro desconhecido').slice(0, 80));
         setIsSyncing(false);
       }
     }, 2500);
@@ -4212,6 +4215,17 @@ function computeDataSignature(data: any): string {
       )}
 
       {/* Modals */}
+      {syncError && (
+        <div
+          role="alert"
+          onClick={() => setSyncError(null)}
+          className="fixed left-3 right-3 z-[300] rounded-2xl bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-100 text-xs px-4 py-3 shadow-lg"
+          style={{ top: 'calc(env(safe-area-inset-top) + 8px)' }}
+        >
+          <strong>Não foi possível salvar na nuvem.</strong> Seus dados estão neste aparelho, mas podem não aparecer em outros. Código: {syncError}. Toque para fechar.
+        </div>
+      )}
+
       <OnceOpen open={isAddExpenseOpen}>
       <AddExpenseModal
           isOpen={isAddExpenseOpen}
