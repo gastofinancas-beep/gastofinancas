@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CardBillPayment, CreditCard, ExpenseItem, Person } from '../types';
-import { formatCurrency, formatMonthDisplay, formatMonthCompact } from '../utils/financeCalculations';
+import { formatCurrency, formatMonthDisplay, formatMonthCompact, getCardLimitUsed } from '../utils/financeCalculations';
 import { BankLogo, normalizeBankName } from './BankLogo';
 import { PayCardBillModal } from './PayCardBillModal';
 import { TiltCard } from './TiltCard';
@@ -187,15 +187,20 @@ export function CardsView({
     return cards.reduce((acc, card) => acc + (card.limit || 0), 0);
   }, [cards]);
 
-  const totalAvailableAll = Math.max(0, totalLimitAll - totalInvoicesAll);
+  const totalLimitUsedAll = useMemo(() => {
+    return cards.reduce((acc, card) => acc + getCardLimitUsed(activeExpenses, card.id), 0);
+  }, [cards, activeExpenses]);
+
+  const totalAvailableAll = Math.max(0, totalLimitAll - totalLimitUsedAll);
 
   // Check if invoice for current month is paid
   const isBillPaid = paidBills.some((p) => p.cardId === selectedCard?.id && p.monthYear === currentMonth);
 
   // Available limit calculation for current selected card
   const cardLimit = selectedCard?.limit || 0;
-  const availableLimit = Math.max(0, cardLimit - totalCardAmount);
-  const usagePercentage = cardLimit > 0 ? Math.min(100, Math.round((totalCardAmount / cardLimit) * 100)) : 0;
+  const cardLimitUsed = selectedCard ? getCardLimitUsed(activeExpenses, selectedCard.id) : 0;
+  const availableLimit = Math.max(0, cardLimit - cardLimitUsed);
+  const usagePercentage = cardLimit > 0 ? Math.min(100, Math.round((cardLimitUsed / cardLimit) * 100)) : 0;
 
   // Calculate days until due
   const getDueStatus = (card: CreditCard, isPaid: boolean) => {

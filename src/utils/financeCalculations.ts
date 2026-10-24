@@ -96,6 +96,23 @@ export function getActiveExpensesForMonth(expenses: ExpenseItem[], monthYear: st
   return results;
 }
 
+/**
+ * Quanto do limite do cartão está comprometido: a fatura do mês mais as parcelas
+ * futuras das compras parceladas (compra de R$ 900 em 3x ocupa R$ 900 do limite, não R$ 300).
+ */
+export function getCardLimitUsed(active: ActiveExpenseResult[], cardId: string): number {
+  return active
+    .filter((e) => e.expense.cardId === cardId)
+    .reduce((sum, e) => {
+      const { expense, currentInstallmentForMonth, totalInstallments } = e;
+      if (expense.type === 'parcelada' && currentInstallmentForMonth && totalInstallments) {
+        const remaining = Math.max(1, totalInstallments - currentInstallmentForMonth + 1);
+        return sum + expense.amount * remaining;
+      }
+      return sum + expense.amount;
+    }, 0);
+}
+
 export function getActiveIncomesForMonth(incomes: IncomeItem[], monthYear: string): IncomeItem[] {
   return incomes.filter((inc) => {
     if (inc.type === 'fixa') {
