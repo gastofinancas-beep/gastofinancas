@@ -759,6 +759,8 @@ function computeDataSignature(data: any): string {
 
   const isApplyingRemoteUpdateRef = useRef(false);
   const latestSyncPayloadRef = useRef<any>(null);
+  // true entre uma alteração local e a confirmação do envio à nuvem: nesse intervalo, dados vindos da nuvem não podem sobrescrever o que o usuário acabou de lançar
+  const unsyncedChangesRef = useRef(false);
   const lastSyncedSignatureRef = useRef<string>('');
   const quotaPausedUntilRef = useRef<number>(0);
   const syncTimeoutRef = useRef<any>(null);
@@ -928,8 +930,15 @@ function computeDataSignature(data: any): string {
     let isMounted = true;
     const userDocRef = doc(db, 'users', targetUid);
 
+    unsyncedChangesRef.current = false;
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (!isMounted) return;
+
+      // Já carregado: ignora o eco da nossa própria gravação e qualquer versão da nuvem
+      // enquanto houver alteração local ainda não enviada (senão o gasto recém-lançado some).
+      if (loadedUidRef.current === targetUid && (docSnap.metadata.hasPendingWrites || unsyncedChangesRef.current)) {
+        return;
+      }
 
       if (docSnap.exists()) {
         let data = docSnap.data();
@@ -1293,6 +1302,7 @@ function computeDataSignature(data: any): string {
     const signature = computeDataSignature(syncPayload);
     // If the data payload hasn't changed compared to what is currently saved or loaded from cloud, skip writing
     if (signature && signature === lastSyncedSignatureRef.current) {
+      unsyncedChangesRef.current = false;
       setIsSyncing(false);
       return;
     }
@@ -1304,6 +1314,7 @@ function computeDataSignature(data: any): string {
     }
 
     setIsSyncing(true);
+    unsyncedChangesRef.current = true;
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
@@ -1322,6 +1333,7 @@ function computeDataSignature(data: any): string {
         }), { merge: true });
 
         lastSyncedSignatureRef.current = signature;
+        unsyncedChangesRef.current = false;
         setIsSyncing(false);
         setLastSyncedAt(new Date());
       } catch (e: any) {
