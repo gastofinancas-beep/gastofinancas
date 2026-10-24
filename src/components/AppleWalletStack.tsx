@@ -4,7 +4,7 @@ import { Eye, EyeOff, Layers, ChevronUp, ChevronDown, Sparkles } from 'lucide-re
 import { CardBillPayment, CreditCard, ExpenseItem } from '../types';
 import { CreditCardVisual } from './CreditCardVisual';
 import { BankLogo } from './BankLogo';
-import { formatCurrency, formatMonthDisplay } from '../utils/financeCalculations';
+import { formatCurrency, formatMonthDisplay, getCardLimitUsed } from '../utils/financeCalculations';
 import { triggerHaptic } from '../utils/haptics';
 
 interface AppleWalletStackProps {
@@ -41,7 +41,8 @@ export function AppleWalletStack({
   }, 0);
 
   const totalLimits = cards.reduce((acc, card) => acc + (card.limit || 0), 0);
-  const totalAvailable = Math.max(0, totalLimits - totalInvoices);
+  const totalLimitUsed = cards.reduce((acc, card) => acc + getCardLimitUsed(activeExpenses, card.id), 0);
+  const totalAvailable = Math.max(0, totalLimits - totalLimitUsed);
 
   if (!cards || cards.length === 0) {
     return null;
@@ -56,7 +57,7 @@ export function AppleWalletStack({
     const isPaid = paidBills.some((p) => p.cardId === card.id && p.monthYear === currentMonth);
     const exp = activeExpenses.filter((e) => e.expense.cardId === card.id);
     const totalInvoice = exp.reduce((acc, curr) => acc + curr.expense.amount, 0);
-    const availLimit = Math.max(0, (card.limit || 0) - totalInvoice);
+    const availLimit = Math.max(0, (card.limit || 0) - getCardLimitUsed(activeExpenses, card.id));
     const dueStatus = getDueStatus(card, isPaid);
 
     return (
@@ -129,7 +130,7 @@ export function AppleWalletStack({
                   const isPaid = paidBills.some((p) => p.cardId === card.id && p.monthYear === currentMonth);
                   const exp = activeExpenses.filter((e) => e.expense.cardId === card.id);
                   const totalInvoice = exp.reduce((acc, curr) => acc + curr.expense.amount, 0);
-                  const availLimit = Math.max(0, (card.limit || 0) - totalInvoice);
+                  const availLimit = Math.max(0, (card.limit || 0) - getCardLimitUsed(activeExpenses, card.id));
                   const dueStatus = getDueStatus(card, isPaid);
 
                   return (
@@ -202,7 +203,7 @@ export function AppleWalletStack({
                   const isPaid = paidBills.some((p) => p.cardId === card.id && p.monthYear === currentMonth);
                   const exp = activeExpenses.filter((e) => e.expense.cardId === card.id);
                   const totalInvoice = exp.reduce((acc, curr) => acc + curr.expense.amount, 0);
-                  const availLimit = Math.max(0, (card.limit || 0) - totalInvoice);
+                  const availLimit = Math.max(0, (card.limit || 0) - getCardLimitUsed(activeExpenses, card.id));
                   const dueStatus = getDueStatus(card, isPaid);
 
                   // Posicionamento vertical dinâmico estilo Apple Wallet
