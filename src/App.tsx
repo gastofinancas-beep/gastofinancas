@@ -133,6 +133,7 @@ import {
 import { 
   calculateMonthSummary, 
   getActiveExpensesForMonth,
+  formatMonthDisplay,
   addMonths,
   formatCurrency 
 } from './utils/financeCalculations';
@@ -762,6 +763,8 @@ function computeDataSignature(data: any): string {
 
   const isApplyingRemoteUpdateRef = useRef(false);
   const latestSyncPayloadRef = useRef<any>(null);
+  // true entre uma alteração local e a confirmação do envio à nuvem: nesse intervalo, dados vindos da nuvem não podem sobrescrever o que o usuário acabou de lançar
+  const unsyncedChangesRef = useRef(false);
   const lastSyncedSignatureRef = useRef<string>('');
   const quotaPausedUntilRef = useRef<number>(0);
   const syncTimeoutRef = useRef<any>(null);
@@ -776,6 +779,7 @@ function computeDataSignature(data: any): string {
 
     const signature = computeDataSignature(payload);
     if (signature && signature === lastSyncedSignatureRef.current) {
+      unsyncedChangesRef.current = false;
       setIsSyncing(false);
       return;
     }
@@ -787,6 +791,7 @@ function computeDataSignature(data: any): string {
         updatedAt: new Date().toISOString(),
       }), { merge: true });
       lastSyncedSignatureRef.current = signature;
+      unsyncedChangesRef.current = false;
       setIsSyncing(false);
       setLastSyncedAt(new Date());
     } catch (err: any) {
@@ -931,8 +936,15 @@ function computeDataSignature(data: any): string {
     let isMounted = true;
     const userDocRef = doc(db, 'users', targetUid);
 
+    unsyncedChangesRef.current = false;
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (!isMounted) return;
+
+      // Já carregado: ignora o eco da nossa própria gravação e qualquer versão da nuvem
+      // enquanto houver alteração local ainda não enviada (senão o gasto recém-lançado some).
+      if (loadedUidRef.current === targetUid && (docSnap.metadata.hasPendingWrites || unsyncedChangesRef.current)) {
+        return;
+      }
 
       if (docSnap.exists()) {
         let data = docSnap.data();
@@ -1296,6 +1308,7 @@ function computeDataSignature(data: any): string {
     const signature = computeDataSignature(syncPayload);
     // If the data payload hasn't changed compared to what is currently saved or loaded from cloud, skip writing
     if (signature && signature === lastSyncedSignatureRef.current) {
+      unsyncedChangesRef.current = false;
       setIsSyncing(false);
       return;
     }
@@ -1307,6 +1320,7 @@ function computeDataSignature(data: any): string {
     }
 
     setIsSyncing(true);
+    unsyncedChangesRef.current = true;
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
@@ -1325,6 +1339,7 @@ function computeDataSignature(data: any): string {
         }), { merge: true });
 
         lastSyncedSignatureRef.current = signature;
+        unsyncedChangesRef.current = false;
         setIsSyncing(false);
         setLastSyncedAt(new Date());
         requestPushCheck();
@@ -1741,14 +1756,17 @@ function computeDataSignature(data: any): string {
     setConfirmDialog({
       isOpen: true,
       title: 'Confirmar Pagamento Total',
-      description: `Deseja marcar todas as compras pendentes de ${personObj?.name || 'esta pessoa'} em ${month} como quitadas?`,
+      description: `Deseja marcar todas as compras pendentes de ${personObj?.name || 'esta pessoa'} em ${formatMonthDisplay(month)} como quitadas?`,
       confirmText: 'Marcar como Pagas',
       cancelText: 'Cancelar',
       variant: 'info',
       icon: 'warning',
       onConfirm: () => {
-        setExpenses(prev => prev.map(exp => {
-          if (exp.personId === personId) {
+        setExpenses(prev => {
+          // Só as compras que cobram neste mês; as de outros meses ficam como estão.
+          const inMonth = new Set(getActiveExpensesForMonth(prev, month).map(a => a.expense.id));
+          return prev.map(exp => {
+          if (exp.personId === personId && inMonth.has(exp.id)) {
             return {
               ...exp,
               paidByPerson: true,
@@ -1756,7 +1774,8 @@ function computeDataSignature(data: any): string {
             };
           }
           return exp;
-        }));
+          });
+        });
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
     });
@@ -2347,21 +2366,20 @@ function computeDataSignature(data: any): string {
       if (oldTrip) {
         const oldNet = oldTrip.netAmount || oldTrip.grossAmount;
         const oldAccId = oldTrip.accountId || targetAccountId;
-        // Repasse futuro nunca entrou no saldo, então não há o que estornar nem aplicar.
+        // Repasse futuro nunca entrou no saldo, então não há o que estornar.
         const oldTx = walletTransactions.find(tx => tx.id === oldTrip.walletTxId);
-        const isPendingPayout = oldTx?.status === 'futuro';
-        if (!isPendingPayout) {
-          // Revert old account balance
-          if (oldAccId) {
-            setWalletAccounts(prev => prev.map(a => a.id === oldAccId ? { ...a, currentBalance: a.currentBalance - oldNet } : a));
-          }
-          // Apply new account balance
-          if (targetAccountId) {
-            setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance + net } : a));
-          }
+        const wasPendingPayout = oldTx?.status === 'futuro';
+        const newPayoutDate = tripData.payoutDate || tripData.date;
+        const nowFuture = !!(newPayoutDate && newPayoutDate > todayLocalISO());
+
+        if (!wasPendingPayout && oldAccId) {
+          setWalletAccounts(prev => prev.map(a => a.id === oldAccId ? { ...a, currentBalance: a.currentBalance - oldNet } : a));
+        }
+        if (!nowFuture && targetAccountId) {
+          setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance + net } : a));
         }
 
-        // Update linked wallet transaction
+        // Update linked wallet transaction (a data de repasse decide se já caiu na conta)
         if (oldTrip.walletTxId) {
           setWalletTransactions(prev => prev.map(tx => {
             if (tx.id === oldTrip.walletTxId) {
@@ -2370,14 +2388,27 @@ function computeDataSignature(data: any): string {
                 accountId: targetAccountId,
                 amount: net,
                 description: `Ganho ${tripData.app.toUpperCase()}: ${tripData.notes || 'Corrida/Entrega'}`,
-                date: tripData.date,
+                date: newPayoutDate,
+                payoutDate: newPayoutDate,
+                status: nowFuture ? 'futuro' : 'efetivado',
                 time: tripData.time,
-                notes: tripData.notes,
+                notes: nowFuture ? `Repasse previsto para ${newPayoutDate}` : tripData.notes,
               };
             }
             return tx;
           }));
         }
+
+        // Entrada gerada por "lançar também em Entradas": acompanha o valor e a data da corrida.
+        setIncomes(prev => prev.map(inc => inc.id === `inc-trip-${editId}` ? {
+          ...inc,
+          amount: net,
+          monthYear: tripData.date.substring(0, 7),
+          date: tripData.date,
+          description: `Renda Extra: ${tripData.app.toUpperCase()} - ${tripData.origin || 'Ganho App'}`,
+          received: !nowFuture,
+          receivedDate: !nowFuture ? tripData.date : undefined,
+        } : inc));
       }
 
       setDriverTrips(prev => prev.map(t => t.id === editId ? { ...t, ...tripData, id: editId, accountId: targetAccountId, walletTxId: t.walletTxId } : t));
@@ -2423,7 +2454,7 @@ function computeDataSignature(data: any): string {
       // If synced to incomes, also create an income entry
       if (tripData.syncToIncome) {
         const newInc: IncomeItem = {
-          id: `inc-uber-${crypto.randomUUID()}`,
+          id: `inc-trip-${newTripId}`,
           description: `Renda Extra: ${tripData.app.toUpperCase()} - ${tripData.origin || 'Ganho App'}`,
           amount: net,
           category: 'freelance',
@@ -2465,6 +2496,8 @@ function computeDataSignature(data: any): string {
           setWalletTransactions(prev => prev.filter(tx => tx.id !== trip.walletTxId));
         }
 
+        // Remove também a entrada criada junto com a corrida (senão a renda ficava contada em dobro).
+        setIncomes(prev => prev.filter(i => i.id !== `inc-trip-${tripId}`));
         setDriverTrips(prev => prev.filter(t => t.id !== tripId));
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
