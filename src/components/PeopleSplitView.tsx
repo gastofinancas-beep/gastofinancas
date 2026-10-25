@@ -24,10 +24,13 @@ import {
   Receipt,
   ArrowRight,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  HandCoins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreditCard, ExpenseItem, Person, UserProfile } from '../types';
+import { CreditCard, ExpenseItem, Person, UserProfile, WalletAccount } from '../types';
+import { PersonDebtsSection } from './PersonDebtsSection';
+import { summarizePersonDebts } from '../utils/personDebts';
 import { formatCurrency, formatMonthDisplay } from '../utils/financeCalculations';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -45,6 +48,11 @@ interface PeopleSplitViewProps {
   onOpenAddExpenseForPerson: (personId: string) => void;
   onEditExpense?: (expense: ExpenseItem) => void;
   onDeleteExpense?: (expenseId: string) => void;
+  walletAccounts: WalletAccount[];
+  onSaveDebt: (personId: string, data: { id?: string; description: string; totalAmount: number; installments: number; startMonthYear: string }) => void;
+  onDeleteDebt: (personId: string, debtId: string) => void;
+  onPayDebtInstallment: (personId: string, debtId: string, index: number, accountId?: string) => void;
+  onUnpayDebtInstallment: (personId: string, debtId: string, index: number) => void;
 }
 
 export function PeopleSplitView({
@@ -61,7 +69,13 @@ export function PeopleSplitView({
   onOpenAddExpenseForPerson,
   onEditExpense,
   onDeleteExpense,
+  walletAccounts,
+  onSaveDebt,
+  onDeleteDebt,
+  onPayDebtInstallment,
+  onUnpayDebtInstallment,
 }: PeopleSplitViewProps) {
+  const [openDebtOnMount, setOpenDebtOnMount] = useState(false);
   const [copiedPersonId, setCopiedPersonId] = useState<string | null>(null);
   const [copiedPixKey, setCopiedPixKey] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'pending' | 'settled'>('all');
@@ -100,6 +114,24 @@ export function PeopleSplitView({
       borrowedPending,
     };
   }, [people, activeExpenses]);
+
+  // Quanto o titular deve às pessoas (dívidas registradas em cada uma)
+  const debtsOverview = useMemo(() => {
+    let pending = 0;
+    let paid = 0;
+    let count = 0;
+    let peopleCount = 0;
+    people.forEach((p) => {
+      if (p.isSelf) return;
+      const t = summarizePersonDebts(p.debts);
+      if (t.count === 0) return;
+      count += t.count;
+      pending += t.pending;
+      paid += t.paid;
+      if (t.pending > 0) peopleCount++;
+    });
+    return { pending, paid, count, people: peopleCount };
+  }, [people]);
 
   // Mensagem curta de cobrança (WhatsApp): só o que está pendente
   const generateChargeMessage = (person: Person, pending: number, items: any[]) => {
@@ -426,6 +458,21 @@ export function PeopleSplitView({
             )}
           </div>
         </div>
+
+        {/* Dívidas do titular com esta pessoa */}
+        {!person.isSelf && (
+          <PersonDebtsSection
+            person={person}
+            currentMonth={currentMonth}
+            walletAccounts={walletAccounts}
+            onSaveDebt={onSaveDebt}
+            onDeleteDebt={onDeleteDebt}
+            onPayDebtInstallment={onPayDebtInstallment}
+            onUnpayDebtInstallment={onUnpayDebtInstallment}
+            openOnMount={openDebtOnMount}
+            onConsumedOpenOnMount={() => setOpenDebtOnMount(false)}
+          />
+        )}
 
         {/* Lista de Compras */}
         <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl sm:rounded-3xl border border-slate-200/60 dark:border-white/[0.08] shadow-xs overflow-hidden">
@@ -781,6 +828,26 @@ export function PeopleSplitView({
 
       </div>
 
+      {/* Quanto eu devo às pessoas */}
+      {debtsOverview.count > 0 && (
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-slate-200/60 dark:border-white/[0.08] p-3.5 sm:p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <HandCoins size={17} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Eu devo</p>
+              <p className="text-[11px] text-slate-400 truncate">
+                {debtsOverview.people} {debtsOverview.people === 1 ? 'pessoa' : 'pessoas'} • já paguei {formatCurrency(debtsOverview.paid)}
+              </p>
+            </div>
+          </div>
+          <p className={`text-lg font-bold tracking-tight whitespace-nowrap ${debtsOverview.pending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {debtsOverview.pending > 0 ? formatCurrency(debtsOverview.pending) : 'Tudo pago'}
+          </p>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* FILTER BAR FOR PEOPLE                                                     */}
       {/* ========================================================================= */}
@@ -906,6 +973,7 @@ export function PeopleSplitView({
                         <span>
                           {personItems.length} {personItems.length === 1 ? 'compra' : 'compras'}
                         </span>
+
                         {person.phone && (
                           <>
                             <span>•</span>
@@ -924,6 +992,14 @@ export function PeopleSplitView({
                           </>
                         )}
                       </div>
+                      {(() => {
+                        const owed = summarizePersonDebts(person.debts).pending;
+                        return owed > 0 ? (
+                          <p className="mt-1 text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                            Você deve {formatCurrency(owed)}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
 
@@ -983,6 +1059,22 @@ export function PeopleSplitView({
                     >
                       <Plus size={15} />
                     </button>
+
+                    {/* Registrar dívida (eu devo a esta pessoa) */}
+                    {!person.isSelf && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(8);
+                          setOpenDebtOnMount(true);
+                          setSelectedPersonForDetails(person);
+                        }}
+                        className="p-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-xl transition-all active:scale-95 cursor-pointer shadow-2xs"
+                        title="Registrar dívida: eu devo a esta pessoa"
+                      >
+                        <HandCoins size={15} />
+                      </button>
+                    )}
 
                     {/* WhatsApp Button (if not self and has purchases) */}
                     {!person.isSelf && pendingAmount > 0 && (
