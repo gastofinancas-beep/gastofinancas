@@ -128,7 +128,7 @@ export function PeopleSplitView({
     let msg = `Olá, ${person.name}! 👋\nSeguem suas compras no meu cartão em *${formatMonthDisplay(currentMonth)}*:\n\n`;
     
     items.forEach((item, index) => {
-      const card = cards.find((c) => c.id === item.expense.cardId)?.name || 'Cartão';
+      const card = cards.find((c) => c.id === item.expense.cardId)?.name || (item.expense.recurrence ? 'Conta fixa' : 'Cartão');
       const inst = item.currentInstallmentForMonth ? ` (Parcela ${item.currentInstallmentForMonth}/${item.totalInstallments})` : '';
       const status = item.expense.paidByPerson ? '✅ Pago' : '⏳ Pendente';
       msg += `${index + 1}. *${item.expense.description}*${inst}\n   💳 ${card} • ${formatCurrency(item.expense.amount)} [${status}]\n`;

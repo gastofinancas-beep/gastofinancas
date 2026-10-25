@@ -60,6 +60,7 @@ const ChartsDashboard = lazy(() => import('./components/ChartsDashboard').then(m
 const PeopleSplitView = lazy(() => import('./components/PeopleSplitView').then(m => ({ default: m.PeopleSplitView })));
 const CardsView = lazy(() => import('./components/CardsView').then(m => ({ default: m.CardsView })));
 const InvestmentsView = lazy(() => import('./components/InvestmentsView').then(m => ({ default: m.InvestmentsView })));
+const FixedView = lazy(() => import('./components/FixedView').then(m => ({ default: m.FixedView })));
 const SubscriptionsView = lazy(() => import('./components/SubscriptionsView').then(m => ({ default: m.SubscriptionsView })));
 const WalletView = lazy(() => import('./components/WalletView').then(m => ({ default: m.WalletView })));
 const ExtraView = lazy(() => import('./components/ExtraView').then(m => ({ default: m.ExtraView })));
@@ -96,7 +97,8 @@ import {
   WalletTransaction,
   WalletCategory,
   MonthlySavingsTarget,
-  AccumulationGoal
+  AccumulationGoal,
+  RecurrenceRule
 } from './types';
 import { 
   INITIAL_EXPENSES, 
@@ -144,6 +146,7 @@ import {
   checkAndTriggerInvestmentYieldNotifications
 } from './utils/notifications';
 import { todayLocalISO, currentMonthLocal } from './utils/dateUtils';
+import { extendSeries, rewriteSeries, endSeries } from './utils/recurringSeries';
 
 const STORAGE_KEYS = {
   EXPENSES: 'financas_expenses_v2',
@@ -1654,6 +1657,85 @@ function computeDataSignature(data: any): string {
       return hasChanges ? [...newItems, ...kept, ...archived] : prevExpenses;
     });
   }, [subscriptions, cards, people, currentMonth, dataLoadedFromCloud, currentUser]);
+
+  const selfPersonId = () => people.find(p => p.isSelf)?.id || people[0]?.id || 'person-me';
+  const seriesHorizon = (viewed: string) => {
+    const real = currentMonthLocal();
+    const base = addMonths(real, 2);
+    const wanted = viewed > base ? viewed : base;
+    const cap = addMonths(real, 36);
+    return wanted > cap ? cap : wanted;
+  };
+
+  const handleSaveFixedRule = (rule: RecurrenceRule, isEdit: boolean) => {
+    const real = currentMonthLocal();
+    const horizon = seriesHorizon(currentMonth);
+    const state = { incomes, expenses };
+    if (isEdit) {
+      const next = rewriteSeries(state, { ...rule, endMonthYear: undefined }, real, horizon, selfPersonId());
+      setIncomes(next.incomes);
+      setExpenses(next.expenses);
+    } else {
+      const next = rewriteSeries(state, rule, rule.startMonthYear, horizon, selfPersonId());
+      setIncomes(next.incomes);
+      setExpenses(next.expenses);
+    }
+  };
+
+  const handleEndFixedRule = (ruleId: string) => {
+    const next = endSeries({ incomes, expenses }, ruleId, currentMonthLocal());
+    setIncomes(next.incomes);
+    setExpenses(next.expenses);
+  };
+
+  // Conta fixa fora do cartão: marcar como paga também tira o valor da conta (e desmarcar devolve)
+  const handleToggleFixedExpensePaid = (id: string) => {
+    const exp = expenses.find(e => e.id === id);
+    if (!exp) return;
+    const nextPaid = !exp.paidByPerson;
+    const accId = resolveTargetWalletAccountId(exp.accountId);
+    let walletTxId = exp.walletTxId;
+
+    if (accId) {
+      if (nextPaid) {
+        walletTxId = `wtx-exp-${crypto.randomUUID()}`;
+        const tx: WalletTransaction = {
+          id: walletTxId,
+          accountId: accId,
+          type: 'pix_out',
+          amount: exp.amount,
+          description: exp.description,
+          category: 'outros',
+          date: todayLocalISO(),
+          createdAt: new Date().toISOString(),
+        };
+        setWalletTransactions(prev => [tx, ...prev]);
+        setWalletAccounts(prev => prev.map(a => a.id === accId ? { ...a, currentBalance: a.currentBalance - exp.amount } : a));
+      } else if (walletTxId) {
+        setWalletTransactions(prev => prev.filter(t => t.id !== exp.walletTxId));
+        setWalletAccounts(prev => prev.map(a => a.id === accId ? { ...a, currentBalance: a.currentBalance + exp.amount } : a));
+        walletTxId = undefined;
+      }
+    }
+
+    setExpenses(prev => prev.map(e => e.id === id ? {
+      ...e,
+      paidByPerson: nextPaid,
+      paidDate: nextPaid ? new Date().toISOString() : undefined,
+      walletTxId,
+    } : e));
+  };
+
+  // Rendas e contas fixas: gera os meses que faltam (até 2 meses à frente ou o mês que está sendo visto)
+  useEffect(() => {
+    if (!dataLoadedFromCloud && currentUser) return;
+    if (!incomes.some(i => i.recurrence) && !expenses.some(e => e.recurrence)) return;
+    const next = extendSeries({ incomes, expenses }, seriesHorizon(currentMonth), selfPersonId());
+    if (next) {
+      if (next.incomes !== incomes) setIncomes(next.incomes);
+      if (next.expenses !== expenses) setExpenses(next.expenses);
+    }
+  }, [incomes, expenses, currentMonth, dataLoadedFromCloud, currentUser]);
 
   // Active month calculations
   const activeExpenses = useMemo(() => {
@@ -4023,6 +4105,19 @@ function computeDataSignature(data: any): string {
                 setWalletPreselectedAccountId(accountId);
                 setIsAddWalletTransactionOpen(true);
               }}
+            />
+          )}
+
+          {activeTab === 'fixos' && (
+            <FixedView
+              currentMonth={currentMonth}
+              incomes={incomes}
+              expenses={expenses}
+              accounts={walletAccounts}
+              onSaveRule={handleSaveFixedRule}
+              onEndRule={handleEndFixedRule}
+              onToggleIncomeReceived={handleToggleIncomeReceived}
+              onToggleExpensePaid={handleToggleFixedExpensePaid}
             />
           )}
 

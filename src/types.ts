@@ -16,6 +16,18 @@ export interface LocalAuthUser {
   isAnonymous?: boolean;
 }
 
+/** Regra de uma renda ou conta fixa. Cada mês vira um lançamento comum que carrega uma cópia da regra. */
+export interface RecurrenceRule {
+  id: string;
+  kind: 'income' | 'expense';
+  name: string;
+  category: string;
+  accountId?: string;
+  parts: { day: number; amount: number }[]; // 1 ou 2 datas por mês
+  startMonthYear: string;
+  endMonthYear?: string; // último mês gerado
+}
+
 export interface ExpenseItem {
   id: string;
   description: string;
@@ -33,6 +45,10 @@ export interface ExpenseItem {
   notes?: string;
   paidByPerson?: boolean;
   paidDate?: string;
+  recurrence?: RecurrenceRule; // conta fixa fora do cartão (gerada todo mês)
+  recurrencePart?: number;
+  accountId?: string;
+  walletTxId?: string;
 }
 
 export type IncomeCategory = 'salario' | 'freelance' | 'investimentos' | 'beneficios' | 'vendas' | 'outros';
@@ -50,6 +66,8 @@ export interface IncomeItem {
   notes?: string;
   accountId?: string;
   walletTxId?: string;
+  recurrence?: RecurrenceRule; // salário/renda fixa (gerada todo mês)
+  recurrencePart?: number;
 }
 
 export interface CreditCard {
@@ -204,7 +222,7 @@ export type CashFlowSummary = {
   status: 'positive' | 'negative' | 'neutral';
 };
 
-export type MainTabType = 'dashboard' | 'carteira' | 'metas' | 'assinaturas' | 'extra' | 'freelancer' | 'pessoas' | 'cartoes' | 'investimentos' | 'meuuber';
+export type MainTabType = 'dashboard' | 'carteira' | 'metas' | 'assinaturas' | 'extra' | 'freelancer' | 'pessoas' | 'cartoes' | 'investimentos' | 'meuuber' | 'fixos';
 
 // ==========================================
 // EXTRA & WORK PROFILE TYPES

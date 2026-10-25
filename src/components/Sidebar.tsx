@@ -16,7 +16,8 @@ import {
   User as UserIcon, 
   ChevronRight,
   Sliders,
-  Car
+  Car,
+  CalendarClock,
 } from 'lucide-react';
 import { MainTabType, UserProfile } from '../types';
 
@@ -53,6 +54,7 @@ export function Sidebar({
 
   const orgTabs = [
     { id: 'investimentos', label: 'Caixinhas & Cofres', icon: Package },
+    { id: 'fixos', label: 'Salários & Contas fixas', icon: CalendarClock },
     { id: 'assinaturas', label: 'Assinaturas', icon: Repeat },
     { id: 'metas', label: 'Metas & Limites', icon: Target },
   ];
