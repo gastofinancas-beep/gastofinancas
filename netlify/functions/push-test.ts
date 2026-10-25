@@ -21,8 +21,9 @@ export const handler: Handler = async (event) => {
   let uid: string;
   try {
     uid = (await getAuth().verifyIdToken(auth.slice(7))).uid;
-  } catch {
-    return json(401, { error: 'Sessão inválida.' });
+  } catch (err: any) {
+    console.warn(`push-test: token recusado`, err?.code, err?.message);
+    return json(401, { error: `Sessão inválida (${err?.code || 'erro'}). Saia e entre de novo na conta.` });
   }
 
   const ref = adminDb().collection(PUSH_COLLECTION).doc(uid);
