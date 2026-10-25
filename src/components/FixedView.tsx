@@ -11,7 +11,7 @@ import { triggerHaptic } from '../utils/haptics';
 
 const INCOME_OPTIONS = [
   { id: 'salario', label: 'Salário' },
-  { id: 'beneficios', label: 'Benefício (VR/VA)' },
+  { id: 'beneficios', label: 'Benefício (VR, VA, VT)' },
   { id: 'freelance', label: 'Freelance' },
   { id: 'investimentos', label: 'Rendimentos' },
   { id: 'outros', label: 'Outra renda' },
@@ -271,6 +271,23 @@ function RuleSheet({ kind, rule, accounts, onClose, onSave, onEnd }: RuleSheetPr
         </div>
 
         <div className="space-y-4">
+          {isIncome && !rule && (
+            <div className="flex flex-wrap gap-2">
+              {[
+                { n: 'Salário', c: 'salario' },
+                { n: 'Vale refeição (VR)', c: 'beneficios' },
+                { n: 'Vale transporte (VT)', c: 'beneficios' },
+              ].map((p) => (
+                <button key={p.n} type="button" onClick={() => { setName(p.n); setCategory(p.c); }}
+                  className={`h-8 px-3 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                    name === p.n ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300'
+                  }`}>
+                  {p.n}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div>
             <label className={label}>Nome</label>
             <input className={field} value={name} maxLength={60} onChange={(e) => setName(e.target.value)}
