@@ -130,6 +130,8 @@ export function AddExpenseModal({
   const [currentInstallment, setCurrentInstallment] = useState(1);
   const [startMonthYear, setStartMonthYear] = useState(currentMonth);
   const [date, setDate] = useState('');
+  // true quando a pessoa escolheu manter o gasto no mês da compra mesmo depois do fechamento
+  const [keepPurchaseMonth, setKeepPurchaseMonth] = useState(false);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showCardPicker, setShowCardPicker] = useState(false);
@@ -280,12 +282,23 @@ export function AddExpenseModal({
     return numericAmount * totalInstallments;
   }, [type, totalInstallments, numericAmount, installmentAmountMode]);
 
+  // Fatura em que o gasto entra: compra depois do dia de fechamento do cartão vai para o mês seguinte.
+  // Só vale para gasto novo; editar um gasto existente mantém o mês que ele já tinha.
+  const selectedCardForBill = cards.find((c) => c.id === cardId);
+  const purchaseDate = date || `${startMonthYear}-01`;
+  const closesBeforePurchase = !editingExpense
+    && !!selectedCardForBill?.closingDay
+    && Number(purchaseDate.slice(8, 10)) > selectedCardForBill.closingDay;
+  const billMonth = closesBeforePurchase && !keepPurchaseMonth
+    ? addMonths(purchaseDate.slice(0, 7), 1)
+    : startMonthYear;
+
   // Data de término das parcelas
   const endMonthYear = useMemo(() => {
-    if (type !== 'parcelada' || totalInstallments <= 1) return startMonthYear;
+    if (type !== 'parcelada' || totalInstallments <= 1) return billMonth;
     const remaining = Math.max(0, totalInstallments - currentInstallment);
-    return addMonths(startMonthYear, remaining);
-  }, [type, totalInstallments, currentInstallment, startMonthYear]);
+    return addMonths(billMonth, remaining);
+  }, [type, totalInstallments, currentInstallment, billMonth]);
 
   // Parcelas restantes a serem cobradas no app
   const remainingInstallmentsCount = useMemo(() => {
@@ -317,6 +330,7 @@ export function AddExpenseModal({
         setTotalInstallments(editingExpense.totalInstallments || 2);
         setCurrentInstallment(editingExpense.currentInstallment || 1);
         setStartMonthYear(editingExpense.startMonthYear || currentMonth);
+        setKeepPurchaseMonth(false);
         setDate(editingExpense.date || defaultDate);
         setNotes(editingExpense.notes || '');
         setStep(1);
@@ -338,6 +352,7 @@ export function AddExpenseModal({
         setTotalInstallments(2);
         setCurrentInstallment(1);
         setStartMonthYear(currentMonth);
+        setKeepPurchaseMonth(false);
         setDate(defaultDate);
         setNotes('');
         setStep(1);
@@ -481,7 +496,7 @@ export function AddExpenseModal({
       type,
       cardId: cardId || undefined,
       personId: personId || undefined,
-      startMonthYear,
+      startMonthYear: billMonth,
       date: valDate,
       notes: notes.trim() || undefined,
     };
@@ -534,7 +549,7 @@ export function AddExpenseModal({
       type,
       cardId: cardId || undefined,
       personId: personId || undefined,
-      startMonthYear,
+      startMonthYear: billMonth,
       date: valDate,
       notes: notes.trim() || undefined,
     };
@@ -1433,11 +1448,25 @@ export function AddExpenseModal({
                   onChange={(newDate) => {
                     setDate(newDate);
                     setStartMonthYear(newDate.slice(0, 7));
+                    setKeepPurchaseMonth(false);
                     if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
                   }}
                 />
                 {errors.date && (
                   <p className="text-rose-500 text-xs mt-1">{errors.date}</p>
+                )}
+                {closesBeforePurchase && selectedCardForBill && (
+                  <div className="mt-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2.5 text-xs leading-snug text-emerald-800 dark:text-emerald-300">
+                    {keepPurchaseMonth ? (
+                      <>Este gasto fica na fatura de <strong>{formatMonthShort(startMonthYear)}</strong>, mesmo depois do fechamento (dia {selectedCardForBill.closingDay}).{' '}
+                        <button type="button" onClick={() => setKeepPurchaseMonth(false)} className="font-semibold underline cursor-pointer">Usar {formatMonthShort(addMonths(startMonthYear, 1))}</button>
+                      </>
+                    ) : (
+                      <>A fatura do {selectedCardForBill.name} fechou dia {selectedCardForBill.closingDay}. Este gasto entra na fatura de <strong>{formatMonthShort(billMonth)}</strong>.{' '}
+                        <button type="button" onClick={() => setKeepPurchaseMonth(true)} className="font-semibold underline cursor-pointer">Lançar em {formatMonthShort(startMonthYear)} mesmo assim</button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1493,7 +1522,7 @@ export function AddExpenseModal({
                   </div>
 
                   <p className="text-[10px] text-slate-400">
-                    Restam {remainingInstallmentsCount} parcelas a serem cobradas de {formatMonthShort(startMonthYear)} até {formatMonthShort(endMonthYear)}.
+                    Restam {remainingInstallmentsCount} parcelas a serem cobradas de {formatMonthShort(billMonth)} até {formatMonthShort(endMonthYear)}.
                   </p>
                 </div>
               )}
@@ -1689,7 +1718,7 @@ export function AddExpenseModal({
                   const totalVal = installmentAmountMode === 'total_purchase'
                     ? numericAmount
                     : (numericAmount > 0 ? numericAmount * num : 0);
-                  const endMonth = addMonths(startMonthYear, num - 1);
+                  const endMonth = addMonths(billMonth, num - 1);
 
                   return (
                     <button

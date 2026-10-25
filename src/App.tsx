@@ -1702,7 +1702,9 @@ function computeDataSignature(data: any): string {
         id: newExp.id,
         type: 'despesa',
         title: 'Despesa Registrada!',
-        subtitle: 'Seu gasto foi registrado com sucesso!',
+        subtitle: newExp.startMonthYear !== currentMonth
+          ? `Lançado na fatura de ${formatMonthDisplay(newExp.startMonthYear)}.`
+          : 'Seu gasto foi registrado com sucesso!',
         amount: newExp.totalAmount || newExp.amount,
         from: cardName,
         to: newExp.description + (personName ? ` (${personName})` : ''),
@@ -2709,12 +2711,12 @@ function computeDataSignature(data: any): string {
 
   // Confirmação de recebimento de lançamento futuro na carteira (Uber/99 que caiu na conta)
   const handleConfirmFutureTransaction = (txId: string) => {
+    const pending = walletTransactions.find(t => t.id === txId);
+    if (pending?.status === 'futuro' && pending.accountId) {
+      setWalletAccounts(accs => accs.map(a => a.id === pending.accountId ? { ...a, currentBalance: a.currentBalance + pending.amount } : a));
+    }
     setWalletTransactions(prev => prev.map(tx => {
       if (tx.id === txId) {
-        const targetAccId = tx.accountId;
-        if (targetAccId && tx.status === 'futuro') {
-          setWalletAccounts(accs => accs.map(a => a.id === targetAccId ? { ...a, currentBalance: a.currentBalance + tx.amount } : a));
-        }
         return {
           ...tx,
           status: 'efetivado',
@@ -3291,7 +3293,11 @@ function computeDataSignature(data: any): string {
   // Wallet Handlers
   const handleSaveWalletAccount = (accData: Partial<WalletAccount>) => {
     if (accData.id) {
-      setWalletAccounts(prev => prev.map(a => a.id === accData.id ? { ...a, ...accData } as WalletAccount : a));
+      setWalletAccounts(prev => prev.map(a => {
+        if (a.id === accData.id) return { ...a, ...accData } as WalletAccount;
+        // Só pode haver uma conta padrão.
+        return accData.isDefault ? { ...a, isDefault: false } : a;
+      }));
     } else {
       const newAcc: WalletAccount = {
         id: `acc-${crypto.randomUUID()}`,
@@ -3366,6 +3372,11 @@ function computeDataSignature(data: any): string {
       id: newTxId,
       createdAt: new Date().toISOString(),
     };
+
+    // Transferir para a mesma conta tiraria o dinheiro sem creditar em lugar nenhum.
+    if (txData.type === 'transferencia_saida' && transferData?.toAccountId && transferData.toAccountId === resolvedAccountId) {
+      return;
+    }
 
     // If it's a transfer between own accounts
     if (txData.type === 'transferencia_saida' && transferData?.toAccountId && resolvedAccountId) {
@@ -3480,8 +3491,15 @@ function computeDataSignature(data: any): string {
         // Revert balance
         const isExit = ['pix_out', 'debito', 'dinheiro_gasto', 'transferencia_saida'].includes(tx.type);
         const isEntry = ['pix_in', 'deposito', 'transferencia_entrada'].includes(tx.type);
+        const isAdjust = tx.type === 'ajuste';
+        const adjustWasNegative = isAdjust && /negativo/i.test(tx.description || '');
 
-        if (isExit) {
+        if (tx.status === 'futuro') {
+          // Repasse que ainda não caiu na conta nunca entrou no saldo: não há o que reverter.
+        } else if (isAdjust) {
+          const delta = adjustWasNegative ? tx.amount : -tx.amount;
+          setWalletAccounts(prev => prev.map(a => a.id === tx.accountId ? { ...a, currentBalance: a.currentBalance + delta } : a));
+        } else if (isExit) {
           setWalletAccounts(prev => prev.map(a => a.id === tx.accountId ? { ...a, currentBalance: a.currentBalance + tx.amount } : a));
         } else if (isEntry) {
           setWalletAccounts(prev => prev.map(a => a.id === tx.accountId ? { ...a, currentBalance: a.currentBalance - tx.amount } : a));
