@@ -8,6 +8,8 @@ const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', c
 
 export interface Reminder { key: string; title: string; body: string; tab: string }
 
+const MAX_PUSHES_PER_DAY = 3;
+
 export interface Moment { morning: boolean; evening: boolean }
 
 /**
@@ -119,29 +121,67 @@ export async function processUser(db: ReturnType<typeof adminDb>, docSnap: Fireb
   const userSnap = await db.collection('users').doc(docSnap.id).get();
   if (!userSnap.exists) return 0;
   const already: string[] = entry.sentKeys || [];
-  const reminders = buildReminders(userSnap.data(), now, moment).filter(r => !already.includes(r.key));
+  let reminders = buildReminders(userSnap.data(), now, moment).filter(r => !already.includes(r.key));
+
+  // Primeira verificação da pessoa: situações que já eram verdade (limite, orçamento, última parcela)
+  // são só registradas, sem avisar, para não chegar uma rajada de avisos de uma vez.
+  if (!entry.alertsSeeded) {
+    const situational = reminders.filter(r => /^(limit|budget|last-inst)/.test(r.key));
+    reminders = reminders.filter(r => !situational.includes(r));
+    await docSnap.ref.set({
+      alertsSeeded: true,
+      sentKeys: [...already, ...situational.map(r => r.key)].slice(-120),
+    }, { merge: true });
+    already.push(...situational.map(r => r.key));
+  }
   if (!reminders.length) return 0;
+
+  // No máximo 3 pushes por dia por pessoa; o que ficar de fora tenta de novo na próxima verificação.
+  const today = now.toISOString().slice(0, 10);
+  const countToday: number = entry.pushDay === today ? (entry.pushCount || 0) : 0;
+  if (countToday >= MAX_PUSHES_PER_DAY) return 0;
+
+  // Vários avisos de uma vez viram uma única notificação, para não assustar.
+  const payloadData = reminders.length === 1
+    ? { title: reminders[0].title, body: reminders[0].body, tag: reminders[0].key, tab: reminders[0].tab }
+    : {
+        title: `Gastô: ${reminders.length} avisos`,
+        body: reminders.slice(0, 4).map(r => `• ${r.title}`).join('\n') + (reminders.length > 4 ? `\ne mais ${reminders.length - 4}` : ''),
+        tag: `digest-${today}-${countToday}`,
+        tab: reminders.every(r => r.tab === reminders[0].tab) ? reminders[0].tab : 'dashboard',
+      };
+  const payload = JSON.stringify({
+    title: payloadData.title,
+    body: payloadData.body,
+    tag: payloadData.tag,
+    url: `/?tab=${payloadData.tab}`,
+    data: { type: payloadData.tab === 'cards' ? 'card_bill' : payloadData.tab === 'subscriptions' ? 'subscription' : payloadData.tab },
+  });
 
   let sent = 0;
   const alive = [...subscriptions];
-  for (const r of reminders) {
-    const payload = JSON.stringify({ title: r.title, body: r.body, tag: r.key, url: `/?tab=${r.tab}`, data: { type: r.tab === 'cards' ? 'card_bill' : r.tab === 'subscriptions' ? 'subscription' : r.tab } });
-    for (const s of subscriptions) {
-      try {
-        await webpush.sendNotification(s, payload);
-        sent++;
-      } catch (err: any) {
-        if ([401, 403, 404, 410].includes(err?.statusCode)) {
-          const i = alive.findIndex(a => a.endpoint === s.endpoint);
-          if (i >= 0) alive.splice(i, 1);
-        } else console.warn('push: falha de envio', err?.statusCode);
-      }
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification(sub, payload);
+      sent++;
+    } catch (err: any) {
+      if ([401, 403, 404, 410].includes(err?.statusCode)) {
+        const i = alive.findIndex(a => a.endpoint === sub.endpoint);
+        if (i >= 0) alive.splice(i, 1);
+      } else console.warn('push: falha de envio', err?.statusCode);
     }
   }
-  await docSnap.ref.set({
-    subscriptions: alive,
-    sentKeys: [...already, ...reminders.map(r => r.key)].slice(-120),
-  }, { merge: true });
+  // Só marca como enviado se ao menos um aparelho recebeu; senão tenta de novo depois.
+  if (sent > 0) {
+    await docSnap.ref.set({
+      subscriptions: alive,
+      sentKeys: [...already, ...reminders.map(r => r.key)].slice(-120),
+      pushDay: today,
+      pushCount: countToday + 1,
+    }, { merge: true });
+  } else if (alive.length !== subscriptions.length) {
+    await docSnap.ref.set({ subscriptions: alive }, { merge: true });
+  }
   return sent;
 }
 
