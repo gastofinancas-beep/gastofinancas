@@ -96,18 +96,31 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
   }
 }
 
+let lastPushApiError = '';
+
 async function pushApi(method: 'POST' | 'DELETE', subscription: PushSubscription | null, endpoint?: string): Promise<boolean> {
+  lastPushApiError = '';
   try {
     const user = auth.currentUser;
-    if (!user) return false;
+    if (!user) {
+      lastPushApiError = 'Você não está logado neste aparelho.';
+      return false;
+    }
     const token = await user.getIdToken();
     const res = await fetch('/.netlify/functions/push-register', {
       method,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ subscription: subscription ? subscription.toJSON() : undefined, endpoint }),
     });
-    return res.ok;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      lastPushApiError = `Servidor respondeu ${res.status}${data?.error ? `: ${data.error}` : ''}`;
+      console.warn('push-register falhou:', lastPushApiError);
+      return false;
+    }
+    return true;
   } catch (err) {
+    lastPushApiError = 'Sem conexão com o servidor de avisos.';
     console.warn('Falha ao falar com o servidor de avisos:', err);
     return false;
   }
@@ -141,7 +154,7 @@ export async function sendBackgroundPushTest(): Promise<{ ok: boolean; message: 
   const subscription = await subscribeToPushNotifications();
   if (!subscription) return { ok: false, message: 'Não foi possível inscrever este aparelho. Feche e abra o app pela Tela de Início e tente de novo.' };
   if (!(await pushApi('POST', subscription))) {
-    return { ok: false, message: 'Não consegui registrar este aparelho no servidor. Confira a conexão e tente de novo.' };
+    return { ok: false, message: `Não consegui registrar este aparelho no servidor. ${lastPushApiError}` };
   }
   try {
     const user = auth.currentUser;

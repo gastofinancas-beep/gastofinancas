@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { getAuth } from 'firebase-admin/auth';
-import { adminDb, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
+import { adminDb, adminError, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
 
 const json = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -14,8 +14,17 @@ const json = (statusCode: number, body: unknown) => ({
  * Só o próprio usuário (token do Firebase) consegue alterar a sua inscrição.
  */
 export const handler: Handler = async (event) => {
+  try {
+    return await register(event);
+  } catch (err: any) {
+    console.error('push-register: erro inesperado', err);
+    return json(500, { error: `Erro no servidor (${err?.code || err?.message || 'desconhecido'}).` });
+  }
+};
+
+async function register(event: Parameters<Handler>[0]) {
   if (event.httpMethod !== 'POST' && event.httpMethod !== 'DELETE') return json(405, { error: 'Método não permitido.' });
-  if (!ensureAdmin()) return json(500, { error: 'Servidor não configurado.' });
+  if (!ensureAdmin()) return json(500, { error: `Servidor não configurado: ${adminError}.` });
 
   const auth = event.headers['authorization'] || event.headers['Authorization'] || '';
   if (!auth.startsWith('Bearer ')) return json(401, { error: 'Não autenticado.' });
@@ -54,4 +63,4 @@ export const handler: Handler = async (event) => {
   current.push({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }, addedAt: new Date().toISOString() });
   await ref.set({ subscriptions: current.slice(-5), updatedAt: new Date().toISOString() }, { merge: true });
   return json(200, { ok: true });
-};
+}
