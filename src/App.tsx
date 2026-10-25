@@ -139,6 +139,7 @@ import {
 import {
   checkAndTriggerUpcomingBillNotifications,
   enableBackgroundPush,
+  requestPushCheck,
   checkAndTriggerInvestmentYieldNotifications
 } from './utils/notifications';
 import { todayLocalISO, currentMonthLocal } from './utils/dateUtils';
@@ -1326,6 +1327,7 @@ function computeDataSignature(data: any): string {
         lastSyncedSignatureRef.current = signature;
         setIsSyncing(false);
         setLastSyncedAt(new Date());
+        requestPushCheck();
       } catch (e: any) {
         if (e?.code === 'resource-exhausted' || String(e).includes('resource-exhausted') || String(e).includes('Quota limit')) {
           quotaPausedUntilRef.current = Date.now() + 60000;
