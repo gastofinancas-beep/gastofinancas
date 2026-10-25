@@ -168,8 +168,8 @@ export function DriverView({
         diagMessage = 'Seu faturamento foi bom, mas seus custos reduziram bastante seu lucro.';
       } else if (realProfit > 0) {
         diagStatus = 'lucrativo';
-        diagTitle = 'Dia lucrativo';
-        diagMessage = 'Você teve um bom resultado hoje.';
+        diagTitle = period === 'hoje' ? 'Dia lucrativo' : 'Período lucrativo';
+        diagMessage = period === 'hoje' ? 'Você teve um bom resultado hoje.' : 'Você teve um bom resultado no período.';
       }
     }
 
@@ -193,7 +193,7 @@ export function DriverView({
       diagTitle,
       diagMessage
     };
-  }, [filteredTrips, filteredExpenses]);
+  }, [filteredTrips, filteredExpenses, period]);
 
   // Monthly Evolution Data for Recharts Line Chart
   const monthlyChartData = useMemo(() => {
@@ -280,7 +280,7 @@ export function DriverView({
       const appNet = appTrips.reduce((acc, t) => acc + (t.netAmount || 0), 0);
       const appExpenseAmt = appExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
       const appProfit = appNet - appExpenseAmt;
-      const appCount = appTrips.length;
+      const appCount = appTrips.reduce((acc, t) => acc + (t.tripsCount || 1), 0);
       const appAvg = appCount > 0 ? appNet / appCount : 0;
       const appKm = appTrips.reduce((acc, t) => acc + (t.distanceKm || 0), 0);
 
@@ -385,7 +385,7 @@ export function DriverView({
                 <Sparkles size={24} className="stroke-[2.5]" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100-100">
+                <p className="text-sm font-semibold text-white">
                   Corrida Registrada com Sucesso!
                 </p>
                 <div className="flex items-center gap-3 mt-0.5">

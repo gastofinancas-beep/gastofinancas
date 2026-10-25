@@ -2389,14 +2389,24 @@ function computeDataSignature(data: any): string {
                 accountId: targetAccountId,
                 amount: net,
                 description: `Ganho ${tripData.app.toUpperCase()}: ${tripData.notes || 'Corrida/Entrega'}`,
-                date: tripData.date,
+                // Repasse futuro mantém a data prevista de recebimento.
+                date: isPendingPayout ? tx.date : tripData.date,
                 time: tripData.time,
-                notes: tripData.notes,
+                notes: isPendingPayout ? tx.notes : tripData.notes,
               };
             }
             return tx;
           }));
         }
+
+        // Entrada gerada por "lançar também em Entradas": acompanha o valor e a data da corrida.
+        setIncomes(prev => prev.map(inc => inc.id === `inc-trip-${editId}` ? {
+          ...inc,
+          amount: net,
+          monthYear: tripData.date.substring(0, 7),
+          date: tripData.date,
+          description: `Renda Extra: ${tripData.app.toUpperCase()} - ${tripData.origin || 'Ganho App'}`,
+        } : inc));
       }
 
       setDriverTrips(prev => prev.map(t => t.id === editId ? { ...t, ...tripData, id: editId, accountId: targetAccountId, walletTxId: t.walletTxId } : t));
@@ -2442,7 +2452,7 @@ function computeDataSignature(data: any): string {
       // If synced to incomes, also create an income entry
       if (tripData.syncToIncome) {
         const newInc: IncomeItem = {
-          id: `inc-uber-${crypto.randomUUID()}`,
+          id: `inc-trip-${newTripId}`,
           description: `Renda Extra: ${tripData.app.toUpperCase()} - ${tripData.origin || 'Ganho App'}`,
           amount: net,
           category: 'freelance',
@@ -2484,6 +2494,8 @@ function computeDataSignature(data: any): string {
           setWalletTransactions(prev => prev.filter(tx => tx.id !== trip.walletTxId));
         }
 
+        // Remove também a entrada criada junto com a corrida (senão a renda ficava contada em dobro).
+        setIncomes(prev => prev.filter(i => i.id !== `inc-trip-${tripId}`));
         setDriverTrips(prev => prev.filter(t => t.id !== tripId));
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
