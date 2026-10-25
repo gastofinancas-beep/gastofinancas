@@ -1702,7 +1702,9 @@ function computeDataSignature(data: any): string {
         id: newExp.id,
         type: 'despesa',
         title: 'Despesa Registrada!',
-        subtitle: 'Seu gasto foi registrado com sucesso!',
+        subtitle: newExp.startMonthYear !== currentMonth
+          ? `Lançado na fatura de ${formatMonthDisplay(newExp.startMonthYear)}.`
+          : 'Seu gasto foi registrado com sucesso!',
         amount: newExp.totalAmount || newExp.amount,
         from: cardName,
         to: newExp.description + (personName ? ` (${personName})` : ''),
