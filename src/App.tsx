@@ -2366,21 +2366,20 @@ function computeDataSignature(data: any): string {
       if (oldTrip) {
         const oldNet = oldTrip.netAmount || oldTrip.grossAmount;
         const oldAccId = oldTrip.accountId || targetAccountId;
-        // Repasse futuro nunca entrou no saldo, então não há o que estornar nem aplicar.
+        // Repasse futuro nunca entrou no saldo, então não há o que estornar.
         const oldTx = walletTransactions.find(tx => tx.id === oldTrip.walletTxId);
-        const isPendingPayout = oldTx?.status === 'futuro';
-        if (!isPendingPayout) {
-          // Revert old account balance
-          if (oldAccId) {
-            setWalletAccounts(prev => prev.map(a => a.id === oldAccId ? { ...a, currentBalance: a.currentBalance - oldNet } : a));
-          }
-          // Apply new account balance
-          if (targetAccountId) {
-            setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance + net } : a));
-          }
+        const wasPendingPayout = oldTx?.status === 'futuro';
+        const newPayoutDate = tripData.payoutDate || tripData.date;
+        const nowFuture = !!(newPayoutDate && newPayoutDate > todayLocalISO());
+
+        if (!wasPendingPayout && oldAccId) {
+          setWalletAccounts(prev => prev.map(a => a.id === oldAccId ? { ...a, currentBalance: a.currentBalance - oldNet } : a));
+        }
+        if (!nowFuture && targetAccountId) {
+          setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance + net } : a));
         }
 
-        // Update linked wallet transaction
+        // Update linked wallet transaction (a data de repasse decide se já caiu na conta)
         if (oldTrip.walletTxId) {
           setWalletTransactions(prev => prev.map(tx => {
             if (tx.id === oldTrip.walletTxId) {
@@ -2389,10 +2388,11 @@ function computeDataSignature(data: any): string {
                 accountId: targetAccountId,
                 amount: net,
                 description: `Ganho ${tripData.app.toUpperCase()}: ${tripData.notes || 'Corrida/Entrega'}`,
-                // Repasse futuro mantém a data prevista de recebimento.
-                date: isPendingPayout ? tx.date : tripData.date,
+                date: newPayoutDate,
+                payoutDate: newPayoutDate,
+                status: nowFuture ? 'futuro' : 'efetivado',
                 time: tripData.time,
-                notes: isPendingPayout ? tx.notes : tripData.notes,
+                notes: nowFuture ? `Repasse previsto para ${newPayoutDate}` : tripData.notes,
               };
             }
             return tx;
@@ -2406,6 +2406,8 @@ function computeDataSignature(data: any): string {
           monthYear: tripData.date.substring(0, 7),
           date: tripData.date,
           description: `Renda Extra: ${tripData.app.toUpperCase()} - ${tripData.origin || 'Ganho App'}`,
+          received: !nowFuture,
+          receivedDate: !nowFuture ? tripData.date : undefined,
         } : inc));
       }
 

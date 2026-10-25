@@ -270,7 +270,9 @@ export function DriverView({
 
   // App breakdown for comparison
   const appsBreakdown = useMemo(() => {
-    const appsList: DriverAppType[] = ['uber', '99', 'indrive', 'blablacar', 'outro'];
+    // Todos os apps, para que corridas de iFood, Rappi, Lalamove e particulares também apareçam e a soma das participações feche em 100%.
+    const appsList = Object.keys(APP_CONFIGS) as DriverAppType[];
+    const alwaysShown: DriverAppType[] = ['uber', '99', 'indrive', 'blablacar', 'outro'];
     return appsList.map(appKey => {
       const appTrips = filteredTrips.filter(t => t.app === appKey);
       const appExpenses = filteredExpenses.filter(e => e.appLinked === appKey);
@@ -297,7 +299,7 @@ export function DriverView({
         km: appKm,
         share: metrics.totalNet > 0 ? (appNet / metrics.totalNet) * 100 : 0
       };
-    }).filter(a => a.count > 0 || a.expenses > 0 || period === 'todos');
+    }).filter(a => a.count > 0 || a.expenses > 0 || (period === 'todos' && alwaysShown.includes(a.app)));
   }, [filteredTrips, filteredExpenses, metrics.totalNet, period]);
 
   const handleOpenAddTrip = (tripToEdit?: DriverTrip) => {
