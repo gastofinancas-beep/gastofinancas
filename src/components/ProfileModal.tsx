@@ -457,6 +457,9 @@ export function ProfileModal({
       notifyCardBillsDue,
       notifyCardBillsEmail,
       notifyInvestmentYields,
+      notifyCardLimit: profile.notifyCardLimit,
+      notifyBudgets: profile.notifyBudgets,
+      notifyMonthSummary: profile.notifyMonthSummary,
       appLockEnabled,
       appLockPin,
       useBiometrics,
@@ -552,6 +555,10 @@ export function ProfileModal({
       updatedAt: new Date().toISOString(),
     };
     onSaveProfile(updated, false);
+  };
+
+  const handleToggleExtra = (key: 'notifyCardLimit' | 'notifyBudgets' | 'notifyMonthSummary', checked: boolean) => {
+    onSaveProfile({ ...profile, [key]: checked, updatedAt: new Date().toISOString() }, false);
   };
 
   const handleToggleYields = async (checked: boolean) => {
@@ -1003,6 +1010,24 @@ export function ProfileModal({
                   title="Rendimento das caixinhas"
                   subtitle={`Resumo do mês · ${boxes.length} ${boxes.length === 1 ? 'caixinha' : 'caixinhas'}`}
                   right={<Switch checked={notifyInvestmentYields} onChange={handleToggleYields} />}
+                />
+                <SettingsRow
+                  icon={<CardIcon size={17} />}
+                  title="Limite do cartão"
+                  subtitle="Ao passar de 80% e quando uma parcela terminar"
+                  right={<Switch checked={profile.notifyCardLimit !== false} onChange={(v: boolean) => handleToggleExtra('notifyCardLimit', v)} />}
+                />
+                <SettingsRow
+                  icon={<AlertCircle size={17} />}
+                  title="Orçamento por categoria"
+                  subtitle="Ao chegar a 90% e ao estourar o limite"
+                  right={<Switch checked={profile.notifyBudgets !== false} onChange={(v: boolean) => handleToggleExtra('notifyBudgets', v)} />}
+                />
+                <SettingsRow
+                  icon={<TrendingUp size={17} />}
+                  title="Resumo do mês"
+                  subtitle="No último dia, quanto sobrou ou faltou"
+                  right={<Switch checked={profile.notifyMonthSummary !== false} onChange={(v: boolean) => handleToggleExtra('notifyMonthSummary', v)} />}
                 />
               </SettingsGroup>
 

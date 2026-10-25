@@ -562,6 +562,8 @@ export default function App() {
         setActiveTab('assinaturas');
       } else if (tabParam === 'investments' || tabParam === 'investimentos') {
         setActiveTab('investimentos');
+      } else if (tabParam === 'dashboard') {
+        setActiveTab('dashboard');
       }
       if (action === 'new_expense') {
         handleOpenAddExpenseWithDefaults();
@@ -1512,6 +1514,8 @@ function computeDataSignature(data: any): string {
           setActiveTab('assinaturas');
         } else if (notifData.type === 'investment_yield') {
           setActiveTab('investimentos');
+        } else if (notifData.type === 'dashboard') {
+          setActiveTab('dashboard');
         }
       }
     };
