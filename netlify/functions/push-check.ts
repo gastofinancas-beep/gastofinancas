@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { getAuth } from 'firebase-admin/auth';
-import { adminDb, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
+import { adminDb, allowRequest, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
 import { brasiliaNow, processUser, setupWebPush } from './_push-core';
 
 const json = (statusCode: number, body: unknown) => ({
@@ -26,6 +26,8 @@ export const handler: Handler = async (event) => {
     console.warn(`push-check: token recusado`, err?.code, err?.message);
     return json(401, { error: `Sessão inválida (${err?.code || 'erro'}). Saia e entre de novo na conta.` });
   }
+
+  if (!(await allowRequest(uid, 'push-check', 120, 60 * 60 * 1000))) return json(429, { error: 'Muitas verificações. Tente de novo mais tarde.' });
 
   const db = adminDb();
   const snap = await db.collection(PUSH_COLLECTION).doc(uid).get();

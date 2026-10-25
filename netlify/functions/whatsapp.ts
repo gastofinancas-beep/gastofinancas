@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { GoogleGenAI } from '@google/genai';
 import * as querystring from 'querystring';
 import * as crypto from 'crypto';
@@ -123,7 +123,8 @@ export const handler: Handler = async (event, context) => {
     if (parsedData.cardName && userData?.cards) {
       const cards = userData.cards as any[];
       // Procura um cartão que o nome bate com o falado
-      const matchedCard = cards.find(c => c.name.toLowerCase().includes(parsedData.cardName.toLowerCase()));
+      const wanted = String(parsedData.cardName).toLowerCase();
+      const matchedCard = cards.find(c => String(c.name || '').toLowerCase().includes(wanted));
       
       if (matchedCard) {
         cardId = matchedCard.id;
@@ -151,8 +152,8 @@ export const handler: Handler = async (event, context) => {
 
     const expenseData = {
       id: crypto.randomUUID(),
-      amount: parsedData.amount || 0,
-      description: parsedData.description || 'Gasto via WhatsApp',
+      amount: Number.isFinite(Number(parsedData.amount)) && Number(parsedData.amount) > 0 ? Math.round(Number(parsedData.amount) * 100) / 100 : 0,
+      description: String(parsedData.description || 'Gasto via WhatsApp').slice(0, 120),
       category: parsedData.category || 'outros',
       type: parsedData.type || 'unica',
       date: dateStr,
@@ -163,9 +164,8 @@ export const handler: Handler = async (event, context) => {
     };
 
     // 10. Salva direto no Firestore do aplicativo
-    const currentExpenses = userData?.expenses || [];
-    currentExpenses.push(expenseData);
-    await userDocRef.set({ expenses: currentExpenses }, { merge: true });
+    // arrayUnion grava só esta despesa, sem reescrever a lista (evita apagar lançamentos feitos ao mesmo tempo no app).
+    await userDocRef.set({ expenses: FieldValue.arrayUnion(expenseData) }, { merge: true });
 
     // 11. Responde no WhatsApp
     let replyMsg = `✅ Despesa anotada!\n\n💰 Valor: R$ ${expenseData.amount.toFixed(2)}\n🛒 O que: ${expenseData.description}\n🏷️ Categoria: ${expenseData.category}`;

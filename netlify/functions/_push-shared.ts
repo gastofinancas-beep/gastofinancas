@@ -42,3 +42,31 @@ export function adminDb() {
     process.env.FIREBASE_DATABASE_ID || 'ai-studio-financegastos220-81373407-56dc-4fe4-8f86-a49bec9a9867'
   );
 }
+
+/** Hosts dos serviços de push dos navegadores. Qualquer outro endereço é recusado (evita o servidor chamar sites arbitrários). */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^web\.push\.apple\.com$/, /(^|\.)push\.apple\.com$/,
+  /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)notify\.windows\.com$/];
+
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  try {
+    const u = new URL(endpoint);
+    return u.protocol === 'https:' && !u.port && PUSH_HOSTS.some(r => r.test(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
+/** Limite simples por usuário e ação (janela fixa). Retorna false quando passou do limite. */
+export async function allowRequest(uid: string, action: string, max: number, windowMs: number): Promise<boolean> {
+  const db = adminDb();
+  const ref = db.collection('rateLimits').doc(`${action}_${uid}`);
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const d = (await tx.get(ref)).data();
+    const fresh = !d || typeof d.resetAt !== 'number' || now > d.resetAt;
+    const count = fresh ? 0 : (d!.count as number);
+    if (count >= max) return false;
+    tx.set(ref, { count: count + 1, resetAt: fresh ? now + windowMs : d!.resetAt });
+    return true;
+  });
+}

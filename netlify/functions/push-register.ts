@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { getAuth } from 'firebase-admin/auth';
-import { adminDb, adminError, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
+import { adminDb, adminError, allowRequest, ensureAdmin, isAllowedPushEndpoint, PUSH_COLLECTION } from './_push-shared';
 
 const json = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -37,6 +37,8 @@ async function register(event: Parameters<Handler>[0]) {
     return json(401, { error: `Sessão inválida (${err?.code || 'erro'}). Saia e entre de novo na conta.` });
   }
 
+  if (!(await allowRequest(uid, 'push-register', 30, 60 * 60 * 1000))) return json(429, { error: 'Muitas tentativas. Tente de novo mais tarde.' });
+
   let body: any = {};
   try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Pedido inválido.' }); }
 
@@ -54,7 +56,7 @@ async function register(event: Parameters<Handler>[0]) {
   }
 
   const sub = body.subscription;
-  if (!sub || typeof sub.endpoint !== 'string' || !sub.endpoint.startsWith('https://')
+  if (!sub || typeof sub.endpoint !== 'string' || !isAllowedPushEndpoint(sub.endpoint)
       || typeof sub.keys?.p256dh !== 'string' || typeof sub.keys?.auth !== 'string') {
     return json(400, { error: 'Inscrição inválida.' });
   }
