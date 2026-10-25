@@ -15,7 +15,8 @@ import {
   LogOut, 
   HelpCircle, 
   Download,
-  Car
+  Car,
+  CalendarClock
 } from 'lucide-react';
 import { UserProfile, MainTabType } from '../types';
 import { triggerHaptic } from '../utils/haptics';
@@ -71,6 +72,11 @@ export function MobileDrawerMenu({
       id: 'metas' as const,
       label: 'Metas de Economia',
       icon: Target,
+    },
+    {
+      id: 'fixos' as const,
+      label: 'Salários e contas fixas',
+      icon: CalendarClock,
     },
     {
       id: 'assinaturas' as const,

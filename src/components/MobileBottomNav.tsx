@@ -15,7 +15,8 @@ import {
   Users, 
   User as UserIcon,
   Sparkles,
-  Target
+  Target,
+  CalendarClock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MainTabType } from '../types';
@@ -183,6 +184,24 @@ export function MobileBottomNav({
                   <div>
                     <p className="text-xs font-semibold">Motorista App</p>
                     <p className="text-[10px] text-slate-400">Uber, 99, inDrive</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setIsMoreSheetOpen(false); onTabChange('fixos'); }}
+                  className={`p-4 rounded-2xl border flex flex-col items-center justify-center gap-2 text-center transition-all cursor-pointer ${
+                    activeTab === 'fixos'
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                      : 'border-black/[0.06] dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200'
+                  }`}
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <CalendarClock size={24} className="stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">Fixos</p>
+                    <p className="text-[10px] text-slate-400">Salário & contas</p>
                   </div>
                 </button>
 
@@ -429,7 +448,7 @@ export function MobileBottomNav({
               className="relative flex flex-col items-center justify-center py-1 cursor-pointer select-none active:scale-95 transition-transform"
             >
               <div className="relative w-11 h-8 flex items-center justify-center">
-                {(['meuuber', 'freelancer', 'assinaturas', 'investimentos', 'pessoas', 'metas'].includes(activeTab) || isMoreSheetOpen) && (
+                {(['meuuber', 'freelancer', 'fixos', 'assinaturas', 'investimentos', 'pessoas', 'metas'].includes(activeTab) || isMoreSheetOpen) && (
                   <motion.div 
                     layoutId="activeNavSquircle"
                     className="absolute inset-0 bg-emerald-500 rounded-[10px] shadow-[0_2px_8px_rgba(16,185,129,0.35)]" 
@@ -439,14 +458,14 @@ export function MobileBottomNav({
                 <Grid3x3 
                   size={19} 
                   className={`relative z-10 transition-colors ${
-                    (['meuuber', 'freelancer', 'assinaturas', 'investimentos', 'pessoas', 'metas'].includes(activeTab) || isMoreSheetOpen)
+                    (['meuuber', 'freelancer', 'fixos', 'assinaturas', 'investimentos', 'pessoas', 'metas'].includes(activeTab) || isMoreSheetOpen)
                       ? 'text-white stroke-[2.2]' 
                       : 'text-slate-400 dark:text-slate-500 stroke-[1.8]'
                   }`} 
                 />
               </div>
               <span className={`text-[11px] tracking-tight mt-1 leading-none transition-colors ${
-                (['meuuber', 'freelancer', 'assinaturas', 'investimentos', 'pessoas', 'metas'].includes(activeTab) || isMoreSheetOpen)
+                (['meuuber', 'freelancer', 'fixos', 'assinaturas', 'investimentos', 'pessoas', 'metas'].includes(activeTab) || isMoreSheetOpen)
                   ? 'font-bold text-slate-900 dark:text-white' 
                   : 'font-medium text-slate-400 dark:text-slate-500'
               }`}>

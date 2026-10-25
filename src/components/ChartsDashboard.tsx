@@ -46,7 +46,8 @@ import {
   ArrowDownLeft,
   Calendar,
   Plane,
-  Star
+  Star,
+  CalendarClock
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { 
@@ -498,6 +499,13 @@ export function ChartsDashboard({
   }, [currentMonth]);
 
   // Today reference in relation to the current viewing month
+  const fixedCount = useMemo(
+    () =>
+      incomes.filter((i) => i.recurrence && i.monthYear === currentMonth).length +
+      expenses.filter((e) => e.recurrence && e.startMonthYear === currentMonth).length,
+    [incomes, expenses, currentMonth]
+  );
+
   const todayInfo = useMemo(() => {
     const now = new Date();
     const nowYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1585,6 +1593,33 @@ export function ChartsDashboard({
               </p>
               <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
                 {subscriptions.filter(s => s.active).length} ativas este mês
+              </p>
+            </div>
+          </div>
+
+          {/* SALÁRIOS E CONTAS FIXAS */}
+          <div
+            onClick={() => onNavigateToTab('fixos')}
+            className="rounded-2xl sm:rounded-3xl p-5 sm:p-6 bg-white dark:bg-[#1C1C1E] border border-slate-200/60 dark:border-white/[0.08] shadow-xs hover:shadow-md hover:border-emerald-500/30 dark:hover:border-white/[0.14] transition-all active:scale-[0.98] cursor-pointer flex flex-col justify-between min-h-[140px] sm:min-h-[160px] group"
+          >
+            <div className="flex items-center justify-between mb-auto">
+              <div className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-[#2C2C2E] border border-slate-100 dark:border-white/[0.10]/60 text-slate-800 dark:text-slate-100 flex items-center justify-center shadow-2xs group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:border-emerald-500/30 transition-all">
+                <CalendarClock size={20} className="stroke-[2]" />
+              </div>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-emerald-500 transition-colors">
+                <ArrowRight size={14} />
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <h3 className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                Salários e contas fixas
+              </h3>
+              <p className="font-bold text-sm sm:text-base text-slate-900 dark:text-white tabular-nums tracking-tight mt-0.5">
+                {fixedCount > 0 ? `${fixedCount} neste mês` : 'Cadastrar'}
+              </p>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                Salário, VR, VT, empréstimo
               </p>
             </div>
           </div>
