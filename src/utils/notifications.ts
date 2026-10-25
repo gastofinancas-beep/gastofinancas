@@ -60,6 +60,17 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
     if (!registration.pushManager) return null;
 
     let subscription = await registration.pushManager.getSubscription();
+    // Inscrição antiga criada sem a chave atual (ou com outra) é recusada pelo servidor de push: recria.
+    const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (subscription && vapid) {
+      const current = subscription.options?.applicationServerKey;
+      const wanted = urlBase64ToUint8Array(vapid);
+      const same = current && current.byteLength === wanted.length && new Uint8Array(current).every((b, i) => b === wanted[i]);
+      if (!same) {
+        await subscription.unsubscribe().catch(() => {});
+        subscription = null;
+      }
+    }
     if (!subscription) {
       // Create a subscription (local / user-visible)
       // If a public VAPID key is provided in env, use it; otherwise subscribe with userVisibleOnly
@@ -111,6 +122,41 @@ export async function enableBackgroundPush(): Promise<boolean> {
   const subscription = await subscribeToPushNotifications();
   if (!subscription) return false;
   return pushApi('POST', subscription);
+}
+
+/**
+ * Garante a inscrição deste aparelho e pede ao servidor um aviso de teste, que chega como push de verdade.
+ * Devolve uma mensagem em português explicando o resultado.
+ */
+export async function sendBackgroundPushTest(): Promise<{ ok: boolean; message: string }> {
+  if (!isPushSupported()) {
+    return { ok: false, message: 'Este aparelho não suporta avisos. No iPhone, adicione o Gastô à Tela de Início e abra por lá.' };
+  }
+  if (Notification.permission !== 'granted') {
+    return { ok: false, message: 'Permissão de notificações não concedida neste aparelho.' };
+  }
+  if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+    return { ok: false, message: 'Avisos com app fechado não estão configurados no servidor (chave VAPID ausente no build).' };
+  }
+  const subscription = await subscribeToPushNotifications();
+  if (!subscription) return { ok: false, message: 'Não foi possível inscrever este aparelho. Feche e abra o app pela Tela de Início e tente de novo.' };
+  if (!(await pushApi('POST', subscription))) {
+    return { ok: false, message: 'Não consegui registrar este aparelho no servidor. Confira a conexão e tente de novo.' };
+  }
+  try {
+    const user = auth.currentUser;
+    if (!user) return { ok: false, message: 'Entre na sua conta para testar.' };
+    const res = await fetch('/.netlify/functions/push-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+      body: JSON.stringify({ endpoint: subscription.endpoint }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.sent > 0) return { ok: true, message: 'Aviso enviado! Ele deve chegar em alguns segundos, mesmo com o app fechado.' };
+    return { ok: false, message: data.error || 'O servidor não conseguiu entregar o aviso a este aparelho.' };
+  } catch {
+    return { ok: false, message: 'Servidor de avisos indisponível no momento.' };
+  }
 }
 
 export async function disableBackgroundPush(): Promise<void> {
@@ -239,7 +285,7 @@ export async function checkAndTriggerUpcomingBillNotifications(
 
   for (const card of cards) {
     // Sempre a data real de hoje (não o mês que a pessoa está navegando na tela).
-    const { billMonth, daysDiff } = getNextDue(card.dueDay || 15, now, 3);
+    const { billMonth, daysDiff } = getNextDue(card.dueDay || 15, now, 0);
 
     // 1. Fatura já paga? Não avisa.
     if (isCardBillPaid(card, paidBills, billMonth)) continue;
@@ -258,10 +304,6 @@ export async function checkAndTriggerUpcomingBillNotifications(
       status = 'today';
     } else if (daysDiff === 1) {
       status = 'tomorrow';
-    } else if (daysDiff === 2 || daysDiff === 3) {
-      status = 'soon';
-    } else if (daysDiff < 0 && daysDiff >= -3) {
-      status = 'overdue';
     }
 
     if (!status) continue;
@@ -293,12 +335,6 @@ export async function checkAndTriggerUpcomingBillNotifications(
     } else if (status === 'tomorrow') {
       title = `Fatura ${card.name} vence amanhã`;
       body = `${formatCurrency(billTotal)}, com vencimento no dia ${dueDay}.`;
-    } else if (status === 'soon') {
-      title = `Fatura ${card.name} vence em ${daysDiff} dias`;
-      body = `${formatCurrency(billTotal)}, com vencimento no dia ${dueDay}.`;
-    } else if (status === 'overdue') {
-      title = `Fatura ${card.name} em atraso`;
-      body = `${formatCurrency(billTotal)} em aberto desde o dia ${dueDay}. Vale regularizar para evitar encargos.`;
     }
 
     let sent = false;

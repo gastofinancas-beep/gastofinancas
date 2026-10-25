@@ -55,7 +55,7 @@ import { hashPin } from '../utils/pinSecurity';
 import { 
   getNotificationPermission, 
   requestNotificationPermission, 
-  subscribeToPushNotifications, enableBackgroundPush, disableBackgroundPush, 
+  subscribeToPushNotifications, enableBackgroundPush, disableBackgroundPush, sendBackgroundPushTest, 
   NotificationPermissionStatus 
 } from '../utils/notifications';
 import { currentMonthLocal, todayLocalISO } from '../utils/dateUtils';
@@ -457,6 +457,9 @@ export function ProfileModal({
       notifyCardBillsDue,
       notifyCardBillsEmail,
       notifyInvestmentYields,
+      notifyCardLimit: profile.notifyCardLimit,
+      notifyBudgets: profile.notifyBudgets,
+      notifyMonthSummary: profile.notifyMonthSummary,
       appLockEnabled,
       appLockPin,
       useBiometrics,
@@ -474,6 +477,16 @@ export function ProfileModal({
       setSavedSuccess(false);
       onClose();
     }, 1000);
+  };
+
+  const [testingPush, setTestingPush] = useState(false);
+  const handleTestPush = async () => {
+    if (testingPush) return;
+    setTestingPush(true);
+    setPushStatusMessage('Enviando aviso de teste...');
+    const result = await sendBackgroundPushTest();
+    setPushStatusMessage(result.message);
+    setTestingPush(false);
   };
 
   const handleToggleNotifications = async (checked: boolean) => {
@@ -498,8 +511,12 @@ export function ProfileModal({
 
     if (perm === 'granted') {
       setNotificationsEnabled(true);
-      setPushStatusMessage('Notificações Push ativadas com sucesso neste dispositivo!');
-      enableBackgroundPush().catch(() => {});
+      setPushStatusMessage('Ativando avisos neste aparelho...');
+      enableBackgroundPush().then(ok => {
+        setPushStatusMessage(ok
+          ? 'Avisos ativados! Eles chegam mesmo com o app fechado.'
+          : 'Permissão concedida, mas não consegui registrar o aparelho para avisos com o app fechado. Use "Enviar aviso de teste".');
+      }).catch(() => {});
       const updated: UserProfile = {
         ...profile,
         notificationsEnabled: true,
@@ -508,7 +525,6 @@ export function ProfileModal({
         updatedAt: new Date().toISOString(),
       };
       onSaveProfile(updated, false);
-      setTimeout(() => setPushStatusMessage(null), 4500);
     } else if (perm === 'denied') {
       setNotificationsEnabled(false);
       setPushStatusMessage('Permissão bloqueada no navegador. Habilite o envio de notificações nas configurações do seu site.');
@@ -539,6 +555,10 @@ export function ProfileModal({
       updatedAt: new Date().toISOString(),
     };
     onSaveProfile(updated, false);
+  };
+
+  const handleToggleExtra = (key: 'notifyCardLimit' | 'notifyBudgets' | 'notifyMonthSummary', checked: boolean) => {
+    onSaveProfile({ ...profile, [key]: checked, updatedAt: new Date().toISOString() }, false);
   };
 
   const handleToggleYields = async (checked: boolean) => {
@@ -967,13 +987,22 @@ export function ProfileModal({
                   }
                   right={<Switch checked={notificationsEnabled && pushPermission === 'granted'} onChange={handleToggleNotifications} disabled={pushPermission === 'unsupported'} />}
                 />
+                {pushPermission === 'granted' && notificationsEnabled && (
+                  <SettingsRow
+                    icon={<Bell size={17} />}
+                    title="Enviar aviso de teste"
+                    subtitle="Confirma que os avisos chegam com o app fechado"
+                    onClick={handleTestPush}
+                    chevron
+                  />
+                )}
               </SettingsGroup>
 
               <SettingsGroup title="O que avisar">
                 <SettingsRow
                   icon={<CardIcon size={17} />}
                   title="Faturas de cartão"
-                  subtitle={`Até 3 dias antes do vencimento · ${cards.length} ${cards.length === 1 ? 'cartão' : 'cartões'}`}
+                  subtitle={`1 dia antes e no dia do vencimento · ${cards.length} ${cards.length === 1 ? 'cartão' : 'cartões'}`}
                   right={<Switch checked={notifyCardBillsDue} onChange={handleToggleCardBills} />}
                 />
                 <SettingsRow
@@ -981,6 +1010,24 @@ export function ProfileModal({
                   title="Rendimento das caixinhas"
                   subtitle={`Resumo do mês · ${boxes.length} ${boxes.length === 1 ? 'caixinha' : 'caixinhas'}`}
                   right={<Switch checked={notifyInvestmentYields} onChange={handleToggleYields} />}
+                />
+                <SettingsRow
+                  icon={<CardIcon size={17} />}
+                  title="Limite do cartão"
+                  subtitle="Ao passar de 80% e quando uma parcela terminar"
+                  right={<Switch checked={profile.notifyCardLimit !== false} onChange={(v: boolean) => handleToggleExtra('notifyCardLimit', v)} />}
+                />
+                <SettingsRow
+                  icon={<AlertCircle size={17} />}
+                  title="Orçamento por categoria"
+                  subtitle="Ao chegar a 90% e ao estourar o limite"
+                  right={<Switch checked={profile.notifyBudgets !== false} onChange={(v: boolean) => handleToggleExtra('notifyBudgets', v)} />}
+                />
+                <SettingsRow
+                  icon={<TrendingUp size={17} />}
+                  title="Resumo do mês"
+                  subtitle="No último dia, quanto sobrou ou faltou"
+                  right={<Switch checked={profile.notifyMonthSummary !== false} onChange={(v: boolean) => handleToggleExtra('notifyMonthSummary', v)} />}
                 />
               </SettingsGroup>
 

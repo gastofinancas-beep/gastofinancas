@@ -168,6 +168,9 @@ export interface UserProfile {
   notifyCardBillsDue?: boolean; // Lembretes de faturas próximas a vencer (Push)
   notifyCardBillsEmail?: boolean; // Envio de avisos de faturas vencendo por e-mail (Firebase Cloud Functions)
   notifyInvestmentYields?: boolean; // Avisos de rendimentos em caixinhas
+  notifyCardLimit?: boolean; // Avisos de limite do cartão e última parcela
+  notifyBudgets?: boolean; // Avisos de orçamento por categoria
+  notifyMonthSummary?: boolean; // Resumo no fim do mês
   pushSubscription?: string; // Web Push Subscription JSON
   appLockEnabled?: boolean;
   appLockPin?: string; // PIN em hash
