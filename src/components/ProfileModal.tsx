@@ -55,7 +55,7 @@ import { hashPin } from '../utils/pinSecurity';
 import { 
   getNotificationPermission, 
   requestNotificationPermission, 
-  subscribeToPushNotifications, enableBackgroundPush, disableBackgroundPush, 
+  subscribeToPushNotifications, enableBackgroundPush, disableBackgroundPush, sendBackgroundPushTest, 
   NotificationPermissionStatus 
 } from '../utils/notifications';
 import { currentMonthLocal, todayLocalISO } from '../utils/dateUtils';
@@ -476,6 +476,16 @@ export function ProfileModal({
     }, 1000);
   };
 
+  const [testingPush, setTestingPush] = useState(false);
+  const handleTestPush = async () => {
+    if (testingPush) return;
+    setTestingPush(true);
+    setPushStatusMessage('Enviando aviso de teste...');
+    const result = await sendBackgroundPushTest();
+    setPushStatusMessage(result.message);
+    setTestingPush(false);
+  };
+
   const handleToggleNotifications = async (checked: boolean) => {
     if (!checked) {
       setNotificationsEnabled(false);
@@ -498,8 +508,12 @@ export function ProfileModal({
 
     if (perm === 'granted') {
       setNotificationsEnabled(true);
-      setPushStatusMessage('Notificações Push ativadas com sucesso neste dispositivo!');
-      enableBackgroundPush().catch(() => {});
+      setPushStatusMessage('Ativando avisos neste aparelho...');
+      enableBackgroundPush().then(ok => {
+        setPushStatusMessage(ok
+          ? 'Avisos ativados! Eles chegam mesmo com o app fechado.'
+          : 'Permissão concedida, mas não consegui registrar o aparelho para avisos com o app fechado. Use "Enviar aviso de teste".');
+      }).catch(() => {});
       const updated: UserProfile = {
         ...profile,
         notificationsEnabled: true,
@@ -508,7 +522,6 @@ export function ProfileModal({
         updatedAt: new Date().toISOString(),
       };
       onSaveProfile(updated, false);
-      setTimeout(() => setPushStatusMessage(null), 4500);
     } else if (perm === 'denied') {
       setNotificationsEnabled(false);
       setPushStatusMessage('Permissão bloqueada no navegador. Habilite o envio de notificações nas configurações do seu site.');
@@ -967,6 +980,15 @@ export function ProfileModal({
                   }
                   right={<Switch checked={notificationsEnabled && pushPermission === 'granted'} onChange={handleToggleNotifications} disabled={pushPermission === 'unsupported'} />}
                 />
+                {pushPermission === 'granted' && notificationsEnabled && (
+                  <SettingsRow
+                    icon={<Bell size={17} />}
+                    title="Enviar aviso de teste"
+                    subtitle="Confirma que os avisos chegam com o app fechado"
+                    onClick={handleTestPush}
+                    chevron
+                  />
+                )}
               </SettingsGroup>
 
               <SettingsGroup title="O que avisar">

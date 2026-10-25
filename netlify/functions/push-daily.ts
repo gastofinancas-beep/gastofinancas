@@ -78,7 +78,7 @@ export default async () => {
             await webpush.sendNotification(s, payload);
             sent++;
           } catch (err: any) {
-            if (err?.statusCode === 404 || err?.statusCode === 410) {
+            if ([401, 403, 404, 410].includes(err?.statusCode)) {
               const i = alive.findIndex(a => a.endpoint === s.endpoint);
               if (i >= 0) alive.splice(i, 1);
             } else console.warn('push-daily: falha de envio', err?.statusCode);
