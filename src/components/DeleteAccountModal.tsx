@@ -31,6 +31,7 @@ import { GoogleIcon, AppleIcon } from './AuthIcons';
 import { InvestmentBox } from '../types';
 import { triggerHaptic } from '../utils/haptics';
 import { Button } from './Button';
+import { removeAllPushData } from '../utils/notifications';
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
@@ -169,6 +170,8 @@ export function DeleteAccountModal({
       setStep('auth');
       const authUser = auth.currentUser;
       if (authUser) {
+        // Precisa do login ativo: apaga os aparelhos de aviso guardados no servidor antes de excluir a conta.
+        await removeAllPushData();
         try {
           await deleteUser(authUser);
         } catch (authErr: any) {

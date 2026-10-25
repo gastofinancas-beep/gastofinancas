@@ -197,6 +197,18 @@ export async function disableBackgroundPush(): Promise<void> {
   }
 }
 
+/** Apaga no servidor todos os aparelhos inscritos da conta (usado ao excluir a conta, para não sobrar dado). */
+export async function removeAllPushData(): Promise<void> {
+  try {
+    await pushApi('DELETE', null, undefined);
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    await subscription?.unsubscribe();
+  } catch (err) {
+    console.warn('Falha ao remover os avisos da conta:', err);
+  }
+}
+
 export type ExtendedNotificationOptions = NotificationOptions & {
   url?: string;
   renotify?: boolean;
