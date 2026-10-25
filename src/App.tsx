@@ -133,6 +133,7 @@ import {
 import { 
   calculateMonthSummary, 
   getActiveExpensesForMonth,
+  formatMonthDisplay,
   addMonths,
   formatCurrency 
 } from './utils/financeCalculations';
@@ -1741,14 +1742,17 @@ function computeDataSignature(data: any): string {
     setConfirmDialog({
       isOpen: true,
       title: 'Confirmar Pagamento Total',
-      description: `Deseja marcar todas as compras pendentes de ${personObj?.name || 'esta pessoa'} em ${month} como quitadas?`,
+      description: `Deseja marcar todas as compras pendentes de ${personObj?.name || 'esta pessoa'} em ${formatMonthDisplay(month)} como quitadas?`,
       confirmText: 'Marcar como Pagas',
       cancelText: 'Cancelar',
       variant: 'info',
       icon: 'warning',
       onConfirm: () => {
-        setExpenses(prev => prev.map(exp => {
-          if (exp.personId === personId) {
+        setExpenses(prev => {
+          // Só as compras que cobram neste mês; as de outros meses ficam como estão.
+          const inMonth = new Set(getActiveExpensesForMonth(prev, month).map(a => a.expense.id));
+          return prev.map(exp => {
+          if (exp.personId === personId && inMonth.has(exp.id)) {
             return {
               ...exp,
               paidByPerson: true,
@@ -1756,7 +1760,8 @@ function computeDataSignature(data: any): string {
             };
           }
           return exp;
-        }));
+          });
+        });
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
     });
