@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { getAuth } from 'firebase-admin/auth';
-import { adminDb, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
+import { adminDb, adminError, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
 
 const json = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
 
 async function register(event: Parameters<Handler>[0]) {
   if (event.httpMethod !== 'POST' && event.httpMethod !== 'DELETE') return json(405, { error: 'Método não permitido.' });
-  if (!ensureAdmin()) return json(500, { error: 'Servidor sem FIREBASE_SERVICE_ACCOUNT válida neste ambiente.' });
+  if (!ensureAdmin()) return json(500, { error: `Servidor não configurado: ${adminError}.` });
 
   const auth = event.headers['authorization'] || event.headers['Authorization'] || '';
   if (!auth.startsWith('Bearer ')) return json(401, { error: 'Não autenticado.' });
