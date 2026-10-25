@@ -995,7 +995,7 @@ export function ProfileModal({
                 <SettingsRow
                   icon={<CardIcon size={17} />}
                   title="Faturas de cartão"
-                  subtitle={`Até 3 dias antes do vencimento · ${cards.length} ${cards.length === 1 ? 'cartão' : 'cartões'}`}
+                  subtitle={`1 dia antes e no dia do vencimento · ${cards.length} ${cards.length === 1 ? 'cartão' : 'cartões'}`}
                   right={<Switch checked={notifyCardBillsDue} onChange={handleToggleCardBills} />}
                 />
                 <SettingsRow

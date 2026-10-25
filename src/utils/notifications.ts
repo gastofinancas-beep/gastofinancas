@@ -285,7 +285,7 @@ export async function checkAndTriggerUpcomingBillNotifications(
 
   for (const card of cards) {
     // Sempre a data real de hoje (não o mês que a pessoa está navegando na tela).
-    const { billMonth, daysDiff } = getNextDue(card.dueDay || 15, now, 3);
+    const { billMonth, daysDiff } = getNextDue(card.dueDay || 15, now, 0);
 
     // 1. Fatura já paga? Não avisa.
     if (isCardBillPaid(card, paidBills, billMonth)) continue;
@@ -304,10 +304,6 @@ export async function checkAndTriggerUpcomingBillNotifications(
       status = 'today';
     } else if (daysDiff === 1) {
       status = 'tomorrow';
-    } else if (daysDiff === 2 || daysDiff === 3) {
-      status = 'soon';
-    } else if (daysDiff < 0 && daysDiff >= -3) {
-      status = 'overdue';
     }
 
     if (!status) continue;
@@ -339,12 +335,6 @@ export async function checkAndTriggerUpcomingBillNotifications(
     } else if (status === 'tomorrow') {
       title = `Fatura ${card.name} vence amanhã`;
       body = `${formatCurrency(billTotal)}, com vencimento no dia ${dueDay}.`;
-    } else if (status === 'soon') {
-      title = `Fatura ${card.name} vence em ${daysDiff} dias`;
-      body = `${formatCurrency(billTotal)}, com vencimento no dia ${dueDay}.`;
-    } else if (status === 'overdue') {
-      title = `Fatura ${card.name} em atraso`;
-      body = `${formatCurrency(billTotal)} em aberto desde o dia ${dueDay}. Vale regularizar para evitar encargos.`;
     }
 
     let sent = false;

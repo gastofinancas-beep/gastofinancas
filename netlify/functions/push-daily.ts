@@ -16,17 +16,15 @@ function buildReminders(data: any, now: Date): Reminder[] {
 
   for (const card of (data.cards || []) as any[]) {
     const dueDay = card.dueDay || 15;
-    const { billMonth, daysDiff } = getNextDue(dueDay, now, 3);
-    if (daysDiff > 3) continue;
+    const { billMonth, daysDiff } = getNextDue(dueDay, now, 0);
+    if (daysDiff !== 0 && daysDiff !== 1) continue;
     if (isCardBillPaid(card, data.paidBills || [], billMonth)) continue;
     const total = getCardBillTotal(card, data.expenses || [], billMonth);
     if (total <= 0) continue;
 
     let title: string; let body: string;
-    if (daysDiff < 0) { title = `Fatura ${card.name} em atraso`; body = `${brl(total)} em aberto desde o dia ${dueDay}. Vale regularizar para evitar encargos.`; }
-    else if (daysDiff === 0) { title = `Fatura ${card.name} vence hoje`; body = `${brl(total)} para pagar hoje e evitar juros.`; }
-    else if (daysDiff === 1) { title = `Fatura ${card.name} vence amanhã`; body = `${brl(total)}, com vencimento no dia ${dueDay}.`; }
-    else { title = `Fatura ${card.name} vence em ${daysDiff} dias`; body = `${brl(total)}, com vencimento no dia ${dueDay}.`; }
+    if (daysDiff === 0) { title = `Fatura ${card.name} vence hoje`; body = `${brl(total)} para pagar hoje e evitar juros.`; }
+    else { title = `Fatura ${card.name} vence amanhã`; body = `${brl(total)}, com vencimento no dia ${dueDay}.`; }
     out.push({ key: `card-bill-${card.id}-${day}`, title, body, tab: 'cards' });
   }
 
