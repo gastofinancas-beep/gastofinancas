@@ -94,6 +94,7 @@ import {
   FreelanceGoals,
   WalletAccount,
   WalletTransaction,
+  PersonDebt,
   WalletCategory,
   MonthlySavingsTarget,
   AccumulationGoal
@@ -137,6 +138,7 @@ import {
   addMonths,
   formatCurrency 
 } from './utils/financeCalculations';
+import { debtInstallmentAmount } from './utils/personDebts';
 import {
   checkAndTriggerUpcomingBillNotifications,
   enableBackgroundPush,
@@ -1809,7 +1811,7 @@ function computeDataSignature(data: any): string {
     setConfirmDialog({
       isOpen: true,
       title: 'Excluir Pessoa',
-      description: `Deseja excluir "${personObj?.name || ''}" da divisão de contas? As compras associadas a ela permanecerão no seu histórico e serão transferidas para o Titular (Você).`,
+      description: `Deseja excluir "${personObj?.name || ''}" da divisão de contas? As compras associadas a ela permanecerão no seu histórico e serão transferidas para o Titular (Você).${personObj?.debts?.length ? ' As dívidas registradas com ela também serão excluídas.' : ''}`,
       confirmText: 'Excluir Pessoa',
       cancelText: 'Cancelar',
       variant: 'danger',
@@ -1823,6 +1825,107 @@ function computeDataSignature(data: any): string {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
     });
+  };
+
+  // Handlers: dívidas do titular com uma pessoa ("eu devo")
+  const handleSaveDebt = (personId: string, data: { id?: string; description: string; totalAmount: number; installments: number; startMonthYear: string }) => {
+    setPeople(prev => prev.map(p => {
+      if (p.id !== personId) return p;
+      const debts = p.debts || [];
+      if (data.id) {
+        return { ...p, debts: debts.map(d => d.id === data.id ? { ...d, ...data, id: d.id } : d) };
+      }
+      const debt: PersonDebt = {
+        id: `debt-${crypto.randomUUID()}`,
+        description: data.description,
+        totalAmount: data.totalAmount,
+        installments: data.installments,
+        startMonthYear: data.startMonthYear,
+        createdAt: new Date().toISOString(),
+      };
+      return { ...p, debts: [...debts, debt] };
+    }));
+  };
+
+  const handleDeleteDebt = (personId: string, debtId: string) => {
+    const debt = people.find(p => p.id === personId)?.debts?.find(d => d.id === debtId);
+    if (!debt) return;
+    const hasPaid = Object.keys(debt.paid || {}).length > 0;
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Excluir dívida',
+      description: hasPaid
+        ? `Deseja excluir "${debt.description}"? Os pagamentos já feitos continuam na sua Carteira.`
+        : `Deseja excluir "${debt.description}"?`,
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      icon: 'trash',
+      onConfirm: () => {
+        setPeople(prev => prev.map(p => p.id === personId ? { ...p, debts: (p.debts || []).filter(d => d.id !== debtId) } : p));
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
+  const handlePayDebtInstallment = (personId: string, debtId: string, index: number, accountId?: string) => {
+    const person = people.find(p => p.id === personId);
+    const debt = person?.debts?.find(d => d.id === debtId);
+    if (!person || !debt || debt.paid?.[String(index)]) return;
+
+    const amount = debtInstallmentAmount(debt, index);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const targetAccountId = resolveTargetWalletAccountId(accountId);
+
+    let walletTxId: string | undefined;
+    if (targetAccountId) {
+      walletTxId = `wtx-debt-${crypto.randomUUID()}`;
+      const suffix = debt.installments > 1 ? ` (${index}/${debt.installments})` : '';
+      const tx: WalletTransaction = {
+        id: walletTxId,
+        accountId: targetAccountId,
+        type: 'pix_out',
+        amount,
+        description: `Pagamento a ${person.name}: ${debt.description}${suffix}`,
+        category: 'outros',
+        date: today,
+        recipientOrPayer: person.name,
+        createdAt: now.toISOString(),
+      };
+      setWalletTransactions(prev => [tx, ...prev]);
+      setWalletAccounts(prev => prev.map(a => a.id === targetAccountId ? { ...a, currentBalance: a.currentBalance - amount } : a));
+    }
+
+    setPeople(prev => prev.map(p => p.id !== personId ? p : {
+      ...p,
+      debts: (p.debts || []).map(d => d.id !== debtId ? d : {
+        ...d,
+        paid: { ...(d.paid || {}), [String(index)]: { date: today, accountId: targetAccountId || undefined, walletTxId } },
+      }),
+    }));
+  };
+
+  const handleUnpayDebtInstallment = (personId: string, debtId: string, index: number) => {
+    const debt = people.find(p => p.id === personId)?.debts?.find(d => d.id === debtId);
+    const record = debt?.paid?.[String(index)];
+    if (!debt || !record) return;
+
+    // Devolve o dinheiro à conta só se o lançamento ainda existe (pode ter sido apagado na Carteira).
+    const tx = record.walletTxId ? walletTransactions.find(t => t.id === record.walletTxId) : undefined;
+    if (tx) {
+      setWalletTransactions(prev => prev.filter(t => t.id !== tx.id));
+      setWalletAccounts(prev => prev.map(a => a.id === tx.accountId ? { ...a, currentBalance: a.currentBalance + tx.amount } : a));
+    }
+
+    setPeople(prev => prev.map(p => p.id !== personId ? p : {
+      ...p,
+      debts: (p.debts || []).map(d => {
+        if (d.id !== debtId) return d;
+        const { [String(index)]: _removed, ...rest } = d.paid || {};
+        return { ...d, paid: rest };
+      }),
+    }));
   };
 
   // Handlers: Card
@@ -4125,6 +4228,11 @@ function computeDataSignature(data: any): string {
                 setIsAddPersonOpen(true);
               }}
               onDeletePerson={handleDeletePerson}
+              walletAccounts={walletAccounts}
+              onSaveDebt={handleSaveDebt}
+              onDeleteDebt={handleDeleteDebt}
+              onPayDebtInstallment={handlePayDebtInstallment}
+              onUnpayDebtInstallment={handleUnpayDebtInstallment}
               onOpenAddExpenseForPerson={(personId) => handleOpenAddExpenseWithDefaults(personId, undefined)}
               onEditExpense={handleEditExpense}
               onDeleteExpense={handleDeleteExpense}
