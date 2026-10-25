@@ -23,7 +23,11 @@ export function ensureAdmin(): boolean {
   try {
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!raw) { adminError = 'variável FIREBASE_SERVICE_ACCOUNT ausente neste ambiente'; return false; }
-    initializeApp({ credential: cert(parseServiceAccount(raw)) });
+    const account = parseServiceAccount(raw);
+    // O token do usuário é conferido contra o projeto do app (o mesmo do login), não o da chave de serviço.
+    const projectId = process.env.VITE_FIREBASE_PROJECT_ID || 'gen-lang-client-0076762644';
+    initializeApp({ credential: cert(account), projectId });
+    if (account.project_id && account.project_id !== projectId) console.warn(`FIREBASE_SERVICE_ACCOUNT é do projeto ${account.project_id}, mas o app usa ${projectId}.`);
     return true;
   } catch (err: any) {
     adminError = `chave inválida (${err?.message || 'erro'})`;

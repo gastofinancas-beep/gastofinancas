@@ -32,8 +32,9 @@ async function register(event: Parameters<Handler>[0]) {
   let uid: string;
   try {
     uid = (await getAuth().verifyIdToken(auth.slice(7))).uid;
-  } catch {
-    return json(401, { error: 'Sessão inválida.' });
+  } catch (err: any) {
+    console.warn(`push-register: token recusado`, err?.code, err?.message);
+    return json(401, { error: `Sessão inválida (${err?.code || 'erro'}). Saia e entre de novo na conta.` });
   }
 
   let body: any = {};
