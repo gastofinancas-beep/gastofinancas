@@ -159,6 +159,20 @@ export async function sendBackgroundPushTest(): Promise<{ ok: boolean; message: 
   }
 }
 
+/** Pede ao servidor para conferir já os avisos de limite e orçamento (chamado após salvar mudanças). */
+export async function requestPushCheck(): Promise<void> {
+  try {
+    const user = auth.currentUser;
+    if (!user || !isPushSupported() || Notification.permission !== 'granted') return;
+    await fetch('/.netlify/functions/push-check', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+    });
+  } catch {
+    // Sem rede: a verificação da próxima hora cobre.
+  }
+}
+
 export async function disableBackgroundPush(): Promise<void> {
   try {
     const registration = await navigator.serviceWorker.ready;
