@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { getAuth } from 'firebase-admin/auth';
 import webpush from 'web-push';
-import { adminDb, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
+import { adminDb, allowRequest, ensureAdmin, PUSH_COLLECTION } from './_push-shared';
 
 const json = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -25,6 +25,8 @@ export const handler: Handler = async (event) => {
     console.warn(`push-test: token recusado`, err?.code, err?.message);
     return json(401, { error: `Sessão inválida (${err?.code || 'erro'}). Saia e entre de novo na conta.` });
   }
+
+  if (!(await allowRequest(uid, 'push-test', 10, 60 * 60 * 1000))) return json(429, { error: 'Muitos testes seguidos. Tente de novo mais tarde.' });
 
   const ref = adminDb().collection(PUSH_COLLECTION).doc(uid);
   const snap = await ref.get();
