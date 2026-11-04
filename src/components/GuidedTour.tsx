@@ -237,15 +237,20 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
 
   const { rect, settled } = useTargetRect(step.target || null, isOpen);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const [placed, setPlaced] = useState<{ stepId: string; side: 'top' | 'bottom' }>({ stepId: '', side: 'bottom' });
-  // O cartão começa embaixo e só sobe se o destaque ficar escondido atrás dele. Decide uma vez por passo, sem ficar pulando.
+  const [placed, setPlaced] = useState<{ stepId: string; side: 'top' | 'bottom'; clip: boolean }>({ stepId: '', side: 'bottom', clip: false });
+  // O cartão começa embaixo. Se esconder o destaque, sobe (só se couber lá em cima); se o destaque for alto demais
+  // para os dois lados (celular pequeno), fica embaixo e o destaque é cortado para continuar visível. Decide uma vez por passo.
   const placement: 'top' | 'bottom' = placed.stepId === step.id ? placed.side : 'bottom';
+  const clipHole = placed.stepId === step.id && placed.clip;
   useEffect(() => {
-    if (!rect || !settled || placement === 'top') return;
+    if (!rect || !settled || placed.stepId === step.id) return;
     const cardH = cardRef.current?.offsetHeight || 240;
     const cardTop = window.innerHeight - 88 - cardH;
-    if (rect.top + rect.height + PAD > cardTop - 4) setPlaced({ stepId: step.id, side: 'top' });
-  }, [rect, settled, placement, step.id]);
+    const hitsBottom = rect.top + rect.height + PAD > cardTop - 4;
+    if (!hitsBottom) { setPlaced({ stepId: step.id, side: 'bottom', clip: false }); return; }
+    const fitsTop = rect.top - PAD >= 24 + cardH + 4;
+    setPlaced({ stepId: step.id, side: fitsTop ? 'top' : 'bottom', clip: !fitsTop });
+  }, [rect, settled, placed.stepId, step.id]);
 
   if (!isOpen || paused || typeof document === 'undefined') return null;
 
@@ -265,6 +270,10 @@ export function GuidedTour({ isOpen, onClose, hasAccount, isAccountModalOpen, go
         height: rect.height + PAD * 2,
       }
     : null;
+  if (hole && clipHole) {
+    const cardTop = vh - 88 - (cardRef.current?.offsetHeight || 240);
+    hole.height = Math.max(48, Math.min(hole.height, cardTop - 8 - hole.top));
+  }
 
   const centered = isFirst && step.id === 'intro';
   const shade = 'fixed bg-black/60 transition-all duration-200 ease-out';
