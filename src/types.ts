@@ -102,6 +102,19 @@ export interface Person {
   cpf?: string;
   notes?: string;
   isSelf?: boolean;
+  debts?: PersonDebt[]; // Dívidas do titular COM esta pessoa (eu devo a ela)
+}
+
+// Quanto o titular deve a uma pessoa (inverso das compras emprestadas no cartão).
+export interface PersonDebt {
+  id: string;
+  description: string;
+  totalAmount: number;
+  installments: number; // 1 = pagamento único
+  startMonthYear: string; // mês da 1ª parcela, ex.: "2026-11"
+  createdAt: string;
+  // Parcelas já pagas, por número da parcela ("1", "2", ...)
+  paid?: Record<string, { date: string; accountId?: string; walletTxId?: string }>;
 }
 
 export interface InvestmentFolder {
